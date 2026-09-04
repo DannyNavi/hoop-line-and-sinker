@@ -21,7 +21,17 @@ npm run dev
 Open [http://localhost:3000](http://localhost:3000).
 
 - `/` — marketing site
-- `/train` — interactive coaching session demo
+- `/train` — interactive coaching session demo (log makes/misses for live AI cues)
+
+## Publish to GitHub
+
+This workspace has no GitHub auth. From your machine:
+
+```bash
+gh auth login
+cd arc
+gh repo create arc --public --source=. --remote=origin --push
+```
 
 ## Product sketch
 
