@@ -8,12 +8,12 @@ import {
   FORM_MODELS,
   getShooterModel,
   pickModelDrill,
-  scoreRepAgainstModel,
   type FormCue,
   type PillarScore,
   type ShooterId,
 } from "@/lib/formModels";
 import {
+  evaluateShotReadiness,
   scorePoseShot,
   type LiveMetrics,
   type PoseFrame,
@@ -55,6 +55,12 @@ export default function TrainPage() {
   ]);
 
   const bufferRef = useRef<PoseFrame[]>([]);
+  const lastLogAtRef = useRef(0);
+  const lastLogWallRef = useRef(0);
+  const [logArmed, setLogArmed] = useState(true);
+  const [logHint, setLogHint] = useState(
+    "Shoot in frame, then log — Sinker only scores real shot motion.",
+  );
 
   const pct = useMemo(
     () => (reps === 0 ? 0 : Math.round((makes / reps) * 100)),
@@ -107,18 +113,36 @@ export default function TrainPage() {
   }, []);
 
   function takeShot(made: boolean) {
-    const frames = bufferRef.current;
-    const result =
-      frames.length >= 8
-        ? scorePoseShot(frames, made, formScore, model)
-        : (() => {
-            const synthetic = scoreRepAgainstModel(model, made, formScore);
-            return {
-              formScore: synthetic.formScore,
-              pillars: synthetic.pillars,
-              cue: synthetic.cue,
-            };
-          })();
+    const wallNow = Date.now();
+    if (!logArmed || wallNow - (lastLogWallRef.current || 0) < 1500) {
+      setLogHint("Wait a beat — take another shot before logging again.");
+      return;
+    }
+
+    // Only score motion captured since the last log (camera uses performance.now timestamps).
+    const frames = bufferRef.current.filter((f) => f.t > lastLogAtRef.current);
+    const readiness = evaluateShotReadiness(frames);
+    if (!readiness.ok) {
+      setLogHint(readiness.detail);
+      const rejectCue: Cue = {
+        id: Date.now(),
+        pillar: "base",
+        title: readiness.reason === "need_motion" ? "No shot yet" : "Pose needed",
+        detail: readiness.detail,
+        severity: "focus",
+        ideal: "Full body in frame · clear dip-to-release",
+        klayTarget: "Full body in frame · clear dip-to-release",
+      };
+      setCues((prev) => [rejectCue, ...prev].slice(0, 5));
+      return;
+    }
+
+    const result = scorePoseShot(frames, made, formScore, model);
+
+    lastLogAtRef.current = performance.now();
+    lastLogWallRef.current = wallNow;
+    setLogArmed(false);
+    window.setTimeout(() => setLogArmed(true), 1500);
 
     setReps((r) => r + 1);
     if (made) setMakes((m) => m + 1);
@@ -126,7 +150,7 @@ export default function TrainPage() {
     setPillars(result.pillars);
     setCues((prev) => [{ ...result.cue, id: Date.now() }, ...prev].slice(0, 5));
     setDrill(pickModelDrill(model, result.cue.pillar));
-    bufferRef.current = bufferRef.current.slice(-15);
+    setLogHint(`Scored against ${model.shortName}. Take another shot, then log.`);
   }
 
   return (
@@ -211,15 +235,23 @@ export default function TrainPage() {
           </div>
 
           <div className="relative z-10 flex flex-wrap gap-3 border-t border-ink/10 px-5 py-4">
-            <button type="button" onClick={() => takeShot(true)} className="pill pill-dark">
+            <button
+              type="button"
+              onClick={() => takeShot(true)}
+              disabled={!logArmed}
+              className="pill pill-dark disabled:cursor-not-allowed disabled:opacity-45"
+            >
               Log make
             </button>
-            <button type="button" onClick={() => takeShot(false)} className="pill pill-outline">
+            <button
+              type="button"
+              onClick={() => takeShot(false)}
+              disabled={!logArmed}
+              className="pill pill-outline disabled:cursor-not-allowed disabled:opacity-45"
+            >
               Log miss
             </button>
-            <p className="self-center text-xs text-ink-faint">
-              Shoot in frame, then log — Sinker scores against {model.shortName}.
-            </p>
+            <p className="self-center text-xs text-ink-faint">{logHint}</p>
           </div>
         </section>
 

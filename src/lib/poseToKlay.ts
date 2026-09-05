@@ -94,6 +94,70 @@ function wristHeightNorm(landmarks: Landmark[], wristIdx: number): number | null
   return clamp((ankle.y - wrist.y) / span, 0, 1.4);
 }
 
+export type ShotReadiness = {
+  ok: boolean;
+  reason?: "need_pose" | "need_motion" | "too_soon";
+  detail: string;
+  wristRange: number;
+  frameCount: number;
+};
+
+/**
+ * Require a real rise in the shooting wrist — standing still / spam clicks
+ * should not produce a scored rep.
+ */
+export function evaluateShotReadiness(
+  frames: PoseFrame[],
+  opts?: { minFrames?: number; minWristRange?: number },
+): ShotReadiness {
+  const minFrames = opts?.minFrames ?? 12;
+  const minWristRange = opts?.minWristRange ?? 0.16;
+
+  if (frames.length < minFrames) {
+    return {
+      ok: false,
+      reason: "need_pose",
+      detail: "Get fully in frame, then take a shot before logging.",
+      wristRange: 0,
+      frameCount: frames.length,
+    };
+  }
+
+  const side = inferShootingSide(frames[frames.length - 1].landmarks);
+  const wristIdx = sideJoints(side).wrist;
+  const heights = frames
+    .map((f) => wristHeightNorm(f.landmarks, wristIdx))
+    .filter((h): h is number => h != null);
+
+  if (heights.length < minFrames) {
+    return {
+      ok: false,
+      reason: "need_pose",
+      detail: "Pose is incomplete — face the camera with your shooting arm visible.",
+      wristRange: 0,
+      frameCount: frames.length,
+    };
+  }
+
+  const wristRange = Math.max(...heights) - Math.min(...heights);
+  if (wristRange < minWristRange) {
+    return {
+      ok: false,
+      reason: "need_motion",
+      detail: "No shot motion detected. Dip and rise, then log make/miss.",
+      wristRange,
+      frameCount: frames.length,
+    };
+  }
+
+  return {
+    ok: true,
+    detail: "Shot motion captured.",
+    wristRange,
+    frameCount: frames.length,
+  };
+}
+
 export function computeLiveMetrics(
   landmarks: Landmark[],
   phase: ShotPhase = "idle",
