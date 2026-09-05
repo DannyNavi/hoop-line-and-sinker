@@ -2,6 +2,8 @@
 
 AI-assisted basketball shooting training coached against form models for **Klay Thompson**, **Stephen Curry**, and **Damian Lillard**.
 
+**Live demo:** [https://hoop-line-and-sinker.vercel.app](https://hoop-line-and-sinker.vercel.app)
+
 Design language inspired by [Ellipsus](https://ellipsus.com/#introduction).
 
 ## Form models
