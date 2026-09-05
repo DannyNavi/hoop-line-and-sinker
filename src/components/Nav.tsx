@@ -24,14 +24,8 @@ export function Nav() {
         </nav>
 
         <div className="flex items-center gap-2.5">
-          <Link
-            href="/train"
-            className="pill pill-outline hidden px-4 py-2 text-sm sm:inline-flex"
-          >
-            Log in
-          </Link>
           <Link href="/train" className="pill pill-dark px-4 py-2 text-sm">
-            Sign up
+            Test it out
           </Link>
         </div>
       </div>
