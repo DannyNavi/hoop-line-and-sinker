@@ -1,8 +1,23 @@
 # Hoop, Line & Sinker
 
-AI-assisted basketball shooting training — film your reps, get live form feedback, and build a cleaner release.
+AI-assisted basketball shooting training coached against a **Klay Thompson form model**.
 
-Design language inspired by [Ellipsus](https://ellipsus.com/#introduction): editorial serif headlines, cream paper surfaces, dark letter-field hero, pill CTAs, and hand-drawn accents.
+Design language inspired by [Ellipsus](https://ellipsus.com/#introduction). Form model distilled from published breakdowns of Thompson's catch-and-shoot jumper.
+
+## Klay form model
+
+The coaching engine in `src/lib/klayModel.ts` scores each rep on eight pillars:
+
+1. Wide base
+2. Compact dip
+3. High set point
+4. Straight line / elbow in
+5. Quiet guide hand
+6. Relaxed release
+7. Efficient follow-through
+8. Vertical land
+
+Sinker returns cues + a matching drill. This is a rules/rubric coach (not a neural net). Live pose video can later map into the same checklist.
 
 ## Stack
 
@@ -18,24 +33,9 @@ npm install
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
-
 - `/` — marketing site
-- `/train` — interactive coaching session demo (log makes/misses for live AI cues)
+- `/train` — Klay-model coaching session (log makes/misses)
 
-## Publish to GitHub
+## Repo
 
-This workspace has no GitHub auth. From your machine:
-
-```bash
-gh auth login
-cd hoop-line-and-sinker
-gh repo create hoop-line-and-sinker --public --source=. --remote=origin --push
-```
-
-## Product sketch
-
-- Live form overlay from court camera
-- AI coach cues tied to your tendencies
-- Session metrics: makes, form score, focus notes
-- Adaptive drills (warm-up → pressure → recap)
+https://github.com/DannyNavi/hoop-line-and-sinker

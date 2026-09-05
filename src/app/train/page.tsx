@@ -1,89 +1,75 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import {
+  KLAY_MODEL,
+  pickKlayDrill,
+  scoreRepAgainstKlay,
+  type FormCue,
+  type PillarScore,
+} from "@/lib/klayModel";
 
-type Cue = {
-  id: number;
-  title: string;
-  detail: string;
-  severity: "focus" | "good" | "fix";
-};
-
-const CUES: Omit<Cue, "id">[] = [
-  {
-    title: "Guide hand quiet",
-    detail: "Off-hand is pushing left on release. Keep it as a shelf until set point.",
-    severity: "fix",
-  },
-  {
-    title: "Elbow under ball",
-    detail: "Elbow drifted outside the line. Tuck it under before the upward press.",
-    severity: "focus",
-  },
-  {
-    title: "Hold the follow-through",
-    detail: "Wrist collapsing early. Freeze the goose-neck until the ball hits rim.",
-    severity: "fix",
-  },
-  {
-    title: "Clean base",
-    detail: "Feet set square to the hoop. Balance looked locked on that make.",
-    severity: "good",
-  },
-  {
-    title: "Shorter dip",
-    detail: "Dip depth increased under fatigue. Keep the gather compact for the next five.",
-    severity: "focus",
-  },
-];
+type Cue = FormCue & { id: number };
 
 export default function TrainPage() {
   const [reps, setReps] = useState(0);
   const [makes, setMakes] = useState(0);
   const [formScore, setFormScore] = useState(82);
   const [recording, setRecording] = useState(true);
+  const [pillars, setPillars] = useState<PillarScore[]>(
+    KLAY_MODEL.pillars.map((p) => ({
+      pillar: p.id,
+      label: p.label,
+      score: 80,
+      target: p.target,
+    })),
+  );
+  const [drill, setDrill] = useState(() => pickKlayDrill());
   const [cues, setCues] = useState<Cue[]>([
     {
       id: 0,
-      title: "Ready when you are",
-      detail: "Take a shot. Sinker will read your form and drop a cue for the next rep.",
+      pillar: "base",
+      title: "Klay model online",
+      detail:
+        "Sinker is scoring you against Thompson's catch-and-shoot checklist. Take a shot to get your first cue.",
       severity: "good",
+      klayTarget: KLAY_MODEL.tagline,
     },
   ]);
-
-  useEffect(() => {
-    if (!recording) return;
-    const timer = setInterval(() => {
-      setFormScore((s) => Math.min(98, Math.max(70, s + (Math.random() > 0.5 ? 1 : -1))));
-    }, 1800);
-    return () => clearInterval(timer);
-  }, [recording]);
 
   const pct = useMemo(
     () => (reps === 0 ? 0 : Math.round((makes / reps) * 100)),
     [makes, reps],
   );
 
+  const weakest = useMemo(
+    () => [...pillars].sort((a, b) => a.score - b.score)[0],
+    [pillars],
+  );
+
   function takeShot(made: boolean) {
-    const cue = CUES[Math.floor(Math.random() * CUES.length)];
+    const result = scoreRepAgainstKlay(made, formScore);
     setReps((r) => r + 1);
     if (made) setMakes((m) => m + 1);
-    setFormScore((s) =>
-      Math.min(98, Math.max(68, s + (made ? 2 : -3) + Math.round(Math.random() * 2))),
-    );
-    setCues((prev) => [{ ...cue, id: Date.now() }, ...prev].slice(0, 4));
+    setFormScore(result.formScore);
+    setPillars(result.pillars);
+    setCues((prev) => [{ ...result.cue, id: Date.now() }, ...prev].slice(0, 5));
+    setDrill(pickKlayDrill(result.cue.pillar));
   }
 
   return (
     <div className="min-h-screen bg-paper">
       <header className="border-b border-line bg-paper">
         <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-5 sm:px-8">
-          <Link href="/" className="serif text-[1.15rem] tracking-[-0.03em]">
+          <Link href="/" className="serif text-[1.1rem] tracking-[-0.03em]">
             hoop line &amp; sinker
           </Link>
           <div className="flex items-center gap-3 text-sm">
+            <span className="hidden rounded-full border border-ink/15 px-3 py-1.5 text-xs font-medium text-ink-muted sm:inline">
+              Model · {KLAY_MODEL.athlete}
+            </span>
             <button
               type="button"
               onClick={() => setRecording((v) => !v)}
@@ -98,10 +84,10 @@ export default function TrainPage() {
         </div>
       </header>
 
-      <main className="mx-auto grid max-w-6xl gap-6 px-5 py-8 sm:px-8 lg:grid-cols-[1.2fr_0.8fr]">
+      <main className="mx-auto grid max-w-6xl gap-6 px-5 py-8 sm:px-8 lg:grid-cols-[1.15fr_0.85fr]">
         <section className="sketch-card overflow-hidden">
           <div className="flex items-center justify-between border-b border-ink/10 px-5 py-4 text-sm text-ink-muted">
-            <span>Court camera · AI form overlay</span>
+            <span>Court camera · Klay form overlay</span>
             <span className="inline-flex items-center gap-2">
               <span
                 className={`h-1.5 w-1.5 rounded-full ${recording ? "bg-green" : "bg-ink-faint"}`}
@@ -110,7 +96,7 @@ export default function TrainPage() {
             </span>
           </div>
 
-          <div className="relative min-h-[420px] p-5 sm:min-h-[520px]">
+          <div className="relative min-h-[400px] p-5 sm:min-h-[480px]">
             <div className="absolute inset-5 overflow-hidden rounded-2xl bg-ink-soft">
               <svg viewBox="0 0 640 480" className="absolute inset-0 h-full w-full" aria-hidden>
                 <ellipse
@@ -139,10 +125,7 @@ export default function TrainPage() {
                   strokeWidth="4"
                   opacity="0.45"
                 />
-                <path
-                  d="M80 90 l2 6 6 2 -6 2 -2 6 -2 -6 -6 -2 6 -2 z"
-                  fill="#FE6862"
-                />
+                <path d="M80 90 l2 6 6 2 -6 2 -2 6 -2 -6 -6 -2 6 -2 z" fill="#FE6862" />
                 <path
                   d="M560 320 l1.5 4.5 4.5 1.5 -4.5 1.5 -1.5 4.5 -1.5 -4.5 -4.5 -1.5 4.5 -1.5 z"
                   fill="#DC78FF"
@@ -166,31 +149,28 @@ export default function TrainPage() {
                       <path d="M278 235 L240 255" />
                       <path d="M278 235 L314 250" />
                     </g>
+                    {/* Klay set-point marker */}
+                    <circle cx="268" cy="150" r="10" stroke="#DC78FF" strokeWidth="1.5" fill="none" opacity="0.7" />
+                    <text x="284" y="146" fill="#DC78FF" fontSize="11" opacity="0.85">
+                      set
+                    </text>
                   </>
                 )}
               </svg>
 
               <div className="absolute bottom-4 left-4 right-4 flex flex-wrap gap-2">
-                <Chip>Elbow 94°</Chip>
-                <Chip>Knee bend 118°</Chip>
-                <Chip>Release {formScore > 85 ? "on arc" : "flat"}</Chip>
+                <Chip>Base {pillars.find((p) => p.pillar === "base")?.score ?? "—"}</Chip>
+                <Chip>Set {pillars.find((p) => p.pillar === "setPoint")?.score ?? "—"}</Chip>
+                <Chip>Release {formScore > 85 ? "Klay-like" : "flat"}</Chip>
               </div>
             </div>
           </div>
 
           <div className="relative z-10 flex flex-wrap gap-3 border-t border-ink/10 px-5 py-4">
-            <button
-              type="button"
-              onClick={() => takeShot(true)}
-              className="pill pill-dark"
-            >
+            <button type="button" onClick={() => takeShot(true)} className="pill pill-dark">
               Log make
             </button>
-            <button
-              type="button"
-              onClick={() => takeShot(false)}
-              className="pill pill-outline"
-            >
+            <button type="button" onClick={() => takeShot(false)} className="pill pill-outline">
               Log miss
             </button>
           </div>
@@ -200,7 +180,36 @@ export default function TrainPage() {
           <div className="grid grid-cols-3 gap-3">
             <Metric label="Reps" value={String(reps)} />
             <Metric label="Make %" value={`${pct}%`} />
-            <Metric label="Form" value={String(formScore)} />
+            <Metric label="Klay fit" value={String(formScore)} />
+          </div>
+
+          <div className="sketch-card p-5">
+            <div className="mb-3 flex items-baseline justify-between gap-3">
+              <div>
+                <p className="hand-note text-sm">Form model</p>
+                <p className="serif mt-1 text-xl">{KLAY_MODEL.athlete}</p>
+              </div>
+              <p className="text-xs font-medium text-ink-faint">{KLAY_MODEL.tagline}</p>
+            </div>
+            <p className="text-sm leading-relaxed text-ink-muted">{KLAY_MODEL.summary}</p>
+            <div className="mt-4 space-y-2">
+              {pillars.slice(0, 5).map((p) => (
+                <div key={p.pillar}>
+                  <div className="mb-1 flex justify-between text-xs">
+                    <span className="text-ink-muted">{p.label}</span>
+                    <span className="font-semibold">{p.score}</span>
+                  </div>
+                  <div className="h-1.5 overflow-hidden rounded-full bg-paper-mute">
+                    <motion.div
+                      className="h-full rounded-full bg-ink"
+                      initial={false}
+                      animate={{ width: `${p.score}%` }}
+                      transition={{ duration: 0.45 }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
 
           <div className="sketch-card flex-1 p-5 sm:p-6">
@@ -210,7 +219,7 @@ export default function TrainPage() {
               </div>
               <div>
                 <p className="font-semibold">Sinker</p>
-                <p className="text-sm text-ink-faint">Live session notes</p>
+                <p className="text-sm text-ink-faint">Coaching to the Klay model</p>
               </div>
             </div>
 
@@ -237,6 +246,7 @@ export default function TrainPage() {
                       <h3 className="text-sm font-semibold">{cue.title}</h3>
                     </div>
                     <p className="text-sm leading-relaxed text-ink-muted">{cue.detail}</p>
+                    <p className="mt-2 text-[11px] text-ink-faint">Target · {cue.klayTarget}</p>
                   </motion.article>
                 ))}
               </AnimatePresence>
@@ -244,10 +254,12 @@ export default function TrainPage() {
           </div>
 
           <div className="sketch-card p-5">
-            <p className="hand-note text-sm">Today&apos;s focus</p>
-            <p className="mt-2 text-sm leading-relaxed text-ink-muted">
-              Keep the guide hand quiet through release. Five wing catch-and-shoots, then
-              move back if form stays above 85.
+            <p className="hand-note text-sm">Klay drill</p>
+            <p className="serif mt-1 text-xl">{drill.name}</p>
+            <p className="mt-2 text-sm leading-relaxed text-ink-muted">{drill.note}</p>
+            <p className="mt-3 text-xs font-medium text-ink-faint">
+              {drill.reps}
+              {weakest ? ` · focusing ${weakest.label.toLowerCase()}` : ""}
             </p>
           </div>
         </aside>

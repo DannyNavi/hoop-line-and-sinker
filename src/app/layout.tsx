@@ -16,9 +16,9 @@ const sans = DM_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Hoop, Line & Sinker — Shoot like a human",
+  title: "Hoop, Line & Sinker — Klay Thompson form coach",
   description:
-    "Hoop, Line & Sinker is an AI-assisted basketball shooting coach. Film your reps, get form feedback, and rebuild a cleaner release.",
+    "Hoop, Line & Sinker coaches your jumper against a Klay Thompson form model: wide base, quick dip, high set point, quiet guide hand, and a splash release.",
 };
 
 export default function RootLayout({

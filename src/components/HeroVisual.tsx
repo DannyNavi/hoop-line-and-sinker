@@ -82,9 +82,9 @@ export function HeroVisual() {
               </svg>
 
               <div className="absolute bottom-4 left-4 right-4 flex flex-wrap gap-2">
-                <Tag>Elbow 92°</Tag>
-                <Tag>Release 7&apos;2&quot;</Tag>
-                <Tag tone="warn">Follow-through short</Tag>
+                <Tag>Wide base</Tag>
+                <Tag>Set · forehead</Tag>
+                <Tag tone="warn">Guide hand late</Tag>
               </div>
 
               <div className="absolute left-[18%] top-[38%]">
@@ -103,24 +103,24 @@ export function HeroVisual() {
               </div>
               <div>
                 <p className="text-sm font-semibold">Sinker</p>
-                <p className="text-xs text-ink-faint">Reading your last 12 reps</p>
+                <p className="text-xs text-ink-faint">Klay model · last 12 reps</p>
               </div>
             </div>
 
             <div className="space-y-3 text-sm leading-relaxed text-ink-muted">
               <p className="rounded-2xl border border-ink/10 bg-paper-soft p-4">
-                Your guide hand is peeling early. Keep it on the ball through the set point,
-                then finish with a quieter wrist on the balance hand.
+                Guide hand stayed on the ball into the snap. Klay clears it early — shelf,
+                then off, before the wrist breaks.
               </p>
               <p className="rounded-2xl border border-dashed border-ink/15 p-4">
-                Dip depth looks consistent. Next set: five catch-and-shoots from the right
-                wing — hold the follow-through until the ball hits net.
+                Dip looks compact. Next set: five wing catch-and-shoots — hit forehead set
+                point before you leave the floor.
               </p>
             </div>
 
             <div className="mt-auto grid grid-cols-3 gap-3 pt-6">
               <Stat label="Makes" value="18/25" />
-              <Stat label="Form" value="86" />
+              <Stat label="Klay fit" value="86" />
               <Stat label="Streak" value="4" />
             </div>
           </div>

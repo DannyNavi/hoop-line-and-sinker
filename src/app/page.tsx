@@ -25,7 +25,7 @@ export default function Home() {
             animate={{ opacity: 1 }}
             className="mb-6 text-sm font-medium tracking-wide text-paper/55"
           >
-            Made for shooters
+            Form model · Klay Thompson
           </motion.p>
 
           <motion.h1
@@ -34,7 +34,7 @@ export default function Home() {
             transition={{ duration: 0.75, ease: [0.22, 1, 0.36, 1] }}
             className="serif text-[2.75rem] text-paper sm:text-6xl md:text-7xl"
           >
-            Shoot like a human
+            Catch. Dip. Rise. Splash.
             <span className="cursor-blink" aria-hidden />
           </motion.h1>
 
@@ -44,8 +44,8 @@ export default function Home() {
             transition={{ duration: 0.75, delay: 0.08 }}
             className="mx-auto mt-6 max-w-lg text-base leading-relaxed text-paper/65 sm:text-lg"
           >
-            Plenty of apps count makes. Hoop, Line & Sinker watches your form — then coaches the next set
-            in plain language.
+            Hoop, Line & Sinker coaches your jumper against a Klay Thompson form model — wide base,
+            quick hip dip, high set point, quiet guide hand.
           </motion.p>
 
           <motion.div
@@ -82,13 +82,13 @@ export default function Home() {
         className="mx-auto max-w-3xl px-5 py-20 text-center sm:px-8 sm:py-28"
       >
         <motion.div {...fade}>
-          <p className="hand-note mb-4 text-lg">That&apos;s us, coaching.</p>
+          <p className="hand-note mb-4 text-lg">Trained on a Splash form.</p>
           <h2 className="serif text-3xl text-ink sm:text-5xl">
-            One place for reps, form, and feedback
+            Coached like Klay shoots
           </h2>
           <p className="mx-auto mt-5 max-w-xl text-base leading-relaxed text-ink-muted sm:text-lg">
-            Your phone-camera-to-notes-to-coach-text loop isn&apos;t polishing that jumper any
-            faster. Streamline how you shoot, review, and improve with Hoop, Line & Sinker.
+            Every cue maps to Thompson&apos;s catch-and-shoot checklist — base, dip, set point,
+            guide hand, release, and land — so feedback stays specific, not generic.
           </p>
         </motion.div>
       </section>
@@ -97,18 +97,18 @@ export default function Home() {
         <div className="grid gap-5 md:grid-cols-3">
           {[
             {
-              title: "Stay in control of your shot",
-              body: "Connected sessions keep every rep, cue, and make percentage in one draft of your game.",
+              title: "Wide base, ready feet",
+              body: "Hop into a flexed catch like Klay — outside shoulder-width so the rise stays on line.",
               color: "#FE6862",
             },
             {
-              title: "Keep feedback focused",
-              body: "Comments land on the exact frame — elbow flare, early dip, short follow-through.",
+              title: "Dip, then set high",
+              body: "Quick bounce to the hip, forehead set point before you leave the floor.",
               color: "#DC78FF",
             },
             {
-              title: "Shoot, adjust, repeat",
-              body: "Merge what worked into your baseline. Leave the noise on the cutting room floor.",
+              title: "Quiet hand, soft snap",
+              body: "Guide hand clears early. Relaxed wrist, high elbow — Splash-Brothers arc.",
               color: "#56C87C",
             },
           ].map((item, i) => (
