@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import { PoseCamera } from "@/components/PoseCamera";
 import {
   KLAY_MODEL,
   pickKlayDrill,
@@ -10,6 +11,12 @@ import {
   type FormCue,
   type PillarScore,
 } from "@/lib/klayModel";
+import {
+  scorePoseShot,
+  type LiveMetrics,
+  type PoseFrame,
+  type ShotPhase,
+} from "@/lib/poseToKlay";
 
 type Cue = FormCue & { id: number };
 
@@ -18,6 +25,8 @@ export default function TrainPage() {
   const [makes, setMakes] = useState(0);
   const [formScore, setFormScore] = useState(82);
   const [recording, setRecording] = useState(true);
+  const [phase, setPhase] = useState<ShotPhase>("idle");
+  const [metrics, setMetrics] = useState<LiveMetrics | null>(null);
   const [pillars, setPillars] = useState<PillarScore[]>(
     KLAY_MODEL.pillars.map((p) => ({
       pillar: p.id,
@@ -31,32 +40,60 @@ export default function TrainPage() {
     {
       id: 0,
       pillar: "base",
-      title: "Klay model online",
+      title: "Pose model ready",
       detail:
-        "Sinker is scoring you against Thompson's catch-and-shoot checklist. Take a shot to get your first cue.",
+        "Allow the camera, stand so your full body is visible, then shoot. Sinker maps your joints onto Klay's checklist.",
       severity: "good",
       klayTarget: KLAY_MODEL.tagline,
     },
   ]);
 
+  const bufferRef = useRef<PoseFrame[]>([]);
+
   const pct = useMemo(
     () => (reps === 0 ? 0 : Math.round((makes / reps) * 100)),
     [makes, reps],
   );
-
   const weakest = useMemo(
     () => [...pillars].sort((a, b) => a.score - b.score)[0],
     [pillars],
   );
 
+  const onLiveUpdate = useCallback(
+    (data: { pillars: PillarScore[]; metrics: LiveMetrics; phase: ShotPhase }) => {
+      if (!recording) return;
+      setPillars(data.pillars);
+      setMetrics(data.metrics);
+      setPhase(data.phase);
+    },
+    [recording],
+  );
+
+  const onBuffer = useCallback((frames: PoseFrame[]) => {
+    bufferRef.current = frames;
+  }, []);
+
   function takeShot(made: boolean) {
-    const result = scoreRepAgainstKlay(made, formScore);
+    const frames = bufferRef.current;
+    const result =
+      frames.length >= 8
+        ? scorePoseShot(frames, made, formScore)
+        : (() => {
+            const synthetic = scoreRepAgainstKlay(made, formScore);
+            return {
+              formScore: synthetic.formScore,
+              pillars: synthetic.pillars,
+              cue: synthetic.cue,
+            };
+          })();
+
     setReps((r) => r + 1);
     if (made) setMakes((m) => m + 1);
     setFormScore(result.formScore);
     setPillars(result.pillars);
     setCues((prev) => [{ ...result.cue, id: Date.now() }, ...prev].slice(0, 5));
     setDrill(pickKlayDrill(result.cue.pillar));
+    bufferRef.current = bufferRef.current.slice(-15);
   }
 
   return (
@@ -68,7 +105,7 @@ export default function TrainPage() {
           </Link>
           <div className="flex items-center gap-3 text-sm">
             <span className="hidden rounded-full border border-ink/15 px-3 py-1.5 text-xs font-medium text-ink-muted sm:inline">
-              Model · {KLAY_MODEL.athlete}
+              Live pose · {KLAY_MODEL.athlete}
             </span>
             <button
               type="button"
@@ -87,82 +124,31 @@ export default function TrainPage() {
       <main className="mx-auto grid max-w-6xl gap-6 px-5 py-8 sm:px-8 lg:grid-cols-[1.15fr_0.85fr]">
         <section className="sketch-card overflow-hidden">
           <div className="flex items-center justify-between border-b border-ink/10 px-5 py-4 text-sm text-ink-muted">
-            <span>Court camera · Klay form overlay</span>
+            <span>Court camera · MediaPipe pose → Klay model</span>
             <span className="inline-flex items-center gap-2">
               <span
                 className={`h-1.5 w-1.5 rounded-full ${recording ? "bg-green" : "bg-ink-faint"}`}
               />
-              {recording ? "Live" : "Paused"}
+              {recording ? `Live · ${phase}` : "Paused"}
             </span>
           </div>
 
-          <div className="relative min-h-[400px] p-5 sm:min-h-[480px]">
-            <div className="absolute inset-5 overflow-hidden rounded-2xl bg-ink-soft">
-              <svg viewBox="0 0 640 480" className="absolute inset-0 h-full w-full" aria-hidden>
-                <ellipse
-                  cx="320"
-                  cy="410"
-                  rx="240"
-                  ry="34"
-                  fill="none"
-                  stroke="#FBFBF9"
-                  strokeWidth="1.5"
-                  opacity="0.35"
-                />
-                <rect
-                  x="488"
-                  y="78"
-                  width="9"
-                  height="140"
-                  rx="2"
-                  fill="#FBFBF9"
-                  opacity="0.35"
-                />
-                <path
-                  d="M470 78 h46 a20 20 0 0 1 0 40 h-46 a20 20 0 0 1 0 -40 z"
-                  fill="none"
-                  stroke="#FBFBF9"
-                  strokeWidth="4"
-                  opacity="0.45"
-                />
-                <path d="M80 90 l2 6 6 2 -6 2 -2 6 -2 -6 -6 -2 6 -2 z" fill="#FE6862" />
-                <path
-                  d="M560 320 l1.5 4.5 4.5 1.5 -4.5 1.5 -1.5 4.5 -1.5 -4.5 -4.5 -1.5 4.5 -1.5 z"
-                  fill="#DC78FF"
-                />
-                {recording && (
-                  <>
-                    <path
-                      d="M150 360 C 250 300, 340 140, 500 100"
-                      stroke="#56C87C"
-                      strokeWidth="2.5"
-                      strokeLinecap="round"
-                      strokeDasharray="6 8"
-                      fill="none"
-                    />
-                    <g stroke="#FBFBF9" strokeWidth="1.6" opacity="0.8">
-                      <circle cx="260" cy="190" r="5" fill="#FBFBF9" />
-                      <circle cx="278" cy="235" r="5" fill="#FBFBF9" />
-                      <circle cx="300" cy="278" r="5" fill="#FBFBF9" />
-                      <circle cx="318" cy="328" r="5" fill="#FBFBF9" />
-                      <path d="M260 190 L278 235 L300 278 L318 328" />
-                      <path d="M278 235 L240 255" />
-                      <path d="M278 235 L314 250" />
-                    </g>
-                    {/* Klay set-point marker */}
-                    <circle cx="268" cy="150" r="10" stroke="#DC78FF" strokeWidth="1.5" fill="none" opacity="0.7" />
-                    <text x="284" y="146" fill="#DC78FF" fontSize="11" opacity="0.85">
-                      set
-                    </text>
-                  </>
-                )}
-              </svg>
-
-              <div className="absolute bottom-4 left-4 right-4 flex flex-wrap gap-2">
-                <Chip>Base {pillars.find((p) => p.pillar === "base")?.score ?? "—"}</Chip>
-                <Chip>Set {pillars.find((p) => p.pillar === "setPoint")?.score ?? "—"}</Chip>
-                <Chip>Release {formScore > 85 ? "Klay-like" : "flat"}</Chip>
-              </div>
+          <div className="relative min-h-[400px] p-5 sm:min-h-[520px]">
+            <div className="absolute inset-5">
+              <PoseCamera
+                active={recording}
+                onLiveUpdate={onLiveUpdate}
+                onBuffer={onBuffer}
+              />
+            </div>
+            <div className="pointer-events-none absolute bottom-8 left-8 right-8 z-10 flex flex-wrap gap-2">
+              <Chip>Base {pillars.find((p) => p.pillar === "base")?.score ?? "—"}</Chip>
+              <Chip>Set {pillars.find((p) => p.pillar === "setPoint")?.score ?? "—"}</Chip>
+              <Chip>
+                Elbow{" "}
+                {metrics?.elbowAngle != null ? `${Math.round(metrics.elbowAngle)}°` : "—"}
+              </Chip>
+              <Chip>{metrics?.side === "left" ? "L" : "R"} hand</Chip>
             </div>
           </div>
 
@@ -173,6 +159,9 @@ export default function TrainPage() {
             <button type="button" onClick={() => takeShot(false)} className="pill pill-outline">
               Log miss
             </button>
+            <p className="self-center text-xs text-ink-faint">
+              Shoot in frame, then log — Sinker scores the pose buffer against Klay.
+            </p>
           </div>
         </section>
 
@@ -193,7 +182,7 @@ export default function TrainPage() {
             </div>
             <p className="text-sm leading-relaxed text-ink-muted">{KLAY_MODEL.summary}</p>
             <div className="mt-4 space-y-2">
-              {pillars.slice(0, 5).map((p) => (
+              {pillars.map((p) => (
                 <div key={p.pillar}>
                   <div className="mb-1 flex justify-between text-xs">
                     <span className="text-ink-muted">{p.label}</span>
@@ -204,7 +193,7 @@ export default function TrainPage() {
                       className="h-full rounded-full bg-ink"
                       initial={false}
                       animate={{ width: `${p.score}%` }}
-                      transition={{ duration: 0.45 }}
+                      transition={{ duration: 0.35 }}
                     />
                   </div>
                 </div>
@@ -219,10 +208,9 @@ export default function TrainPage() {
               </div>
               <div>
                 <p className="font-semibold">Sinker</p>
-                <p className="text-sm text-ink-faint">Coaching to the Klay model</p>
+                <p className="text-sm text-ink-faint">Live pose → Klay cues</p>
               </div>
             </div>
-
             <div className="space-y-3">
               <AnimatePresence initial={false}>
                 {cues.map((cue) => (

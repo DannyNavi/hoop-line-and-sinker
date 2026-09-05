@@ -17,7 +17,11 @@ The coaching engine in `src/lib/klayModel.ts` scores each rep on eight pillars:
 7. Efficient follow-through
 8. Vertical land
 
-Sinker returns cues + a matching drill. This is a rules/rubric coach (not a neural net). Live pose video can later map into the same checklist.
+Sinker returns cues + a matching drill.
+
+## Live pose tracking
+
+`/train` runs **MediaPipe Pose** in the browser, estimates joints from your webcam, and maps them onto the Klay checklist (base width, dip height, set point, elbow angle, guide-hand clearance, release, follow-through, landing). Log make/miss after a rep to score the pose buffer.
 
 ## Stack
 
