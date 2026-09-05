@@ -99,10 +99,10 @@ export function HeroVisual() {
           <div className="flex flex-col p-5 sm:p-7">
             <div className="mb-5 flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-ink text-sm font-bold text-paper">
-                A
+                S
               </div>
               <div>
-                <p className="text-sm font-semibold">Arc Coach</p>
+                <p className="text-sm font-semibold">Sinker</p>
                 <p className="text-xs text-ink-faint">Reading your last 12 reps</p>
               </div>
             </div>

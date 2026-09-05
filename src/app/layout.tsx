@@ -16,9 +16,9 @@ const sans = DM_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Arc — Shoot like a human",
+  title: "Hoop, Line & Sinker — Shoot like a human",
   description:
-    "Arc is an AI-assisted basketball shooting coach. Film your reps, get form feedback, and rebuild a cleaner release.",
+    "Hoop, Line & Sinker is an AI-assisted basketball shooting coach. Film your reps, get form feedback, and rebuild a cleaner release.",
 };
 
 export default function RootLayout({

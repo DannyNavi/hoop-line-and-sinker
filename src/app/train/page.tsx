@@ -48,7 +48,7 @@ export default function TrainPage() {
     {
       id: 0,
       title: "Ready when you are",
-      detail: "Take a shot. Arc will read your form and drop a cue for the next rep.",
+      detail: "Take a shot. Sinker will read your form and drop a cue for the next rep.",
       severity: "good",
     },
   ]);
@@ -80,8 +80,8 @@ export default function TrainPage() {
     <div className="min-h-screen bg-paper">
       <header className="border-b border-line bg-paper">
         <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-5 sm:px-8">
-          <Link href="/" className="serif text-[1.55rem]">
-            arc
+          <Link href="/" className="serif text-[1.15rem] tracking-[-0.03em]">
+            hoop line &amp; sinker
           </Link>
           <div className="flex items-center gap-3 text-sm">
             <button
@@ -206,10 +206,10 @@ export default function TrainPage() {
           <div className="sketch-card flex-1 p-5 sm:p-6">
             <div className="mb-5 flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-ink text-sm font-bold text-paper">
-                A
+                S
               </div>
               <div>
-                <p className="font-semibold">Arc Coach</p>
+                <p className="font-semibold">Sinker</p>
                 <p className="text-sm text-ink-faint">Live session notes</p>
               </div>
             </div>

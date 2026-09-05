@@ -44,7 +44,7 @@ export default function Home() {
             transition={{ duration: 0.75, delay: 0.08 }}
             className="mx-auto mt-6 max-w-lg text-base leading-relaxed text-paper/65 sm:text-lg"
           >
-            Plenty of apps count makes. Arc watches your form — then coaches the next set
+            Plenty of apps count makes. Hoop, Line & Sinker watches your form — then coaches the next set
             in plain language.
           </motion.p>
 
@@ -88,7 +88,7 @@ export default function Home() {
           </h2>
           <p className="mx-auto mt-5 max-w-xl text-base leading-relaxed text-ink-muted sm:text-lg">
             Your phone-camera-to-notes-to-coach-text loop isn&apos;t polishing that jumper any
-            faster. Streamline how you shoot, review, and improve with Arc.
+            faster. Streamline how you shoot, review, and improve with Hoop, Line & Sinker.
           </p>
         </motion.div>
       </section>
@@ -133,7 +133,7 @@ export default function Home() {
           <motion.div {...fade} className="mx-auto max-w-2xl text-center">
             <h2 className="serif text-3xl sm:text-5xl">Form notes that write themselves</h2>
             <p className="mt-4 text-base text-paper/75 sm:text-lg">
-              Arc turns every session into a readable recap — so tomorrow&apos;s warm-up starts
+              Hoop, Line & Sinker turns every session into a readable recap — so tomorrow&apos;s warm-up starts
               smarter than today&apos;s.
             </p>
           </motion.div>
@@ -192,7 +192,7 @@ export default function Home() {
               “More than any other single habit, deliberate shooting has transformed athletic
               confidence.”
             </p>
-            <p className="relative z-10 mt-4 text-sm text-ink-faint">— Arc training notes</p>
+            <p className="relative z-10 mt-4 text-sm text-ink-faint">— Hoop, Line & Sinker notes</p>
           </motion.div>
         </div>
       </section>
@@ -202,7 +202,7 @@ export default function Home() {
           {[
             {
               title: "Warm-up lane",
-              body: "Form shoots up close while Arc calibrates your baseline.",
+              body: "Form shoots up close while Sinker calibrates your baseline.",
             },
             {
               title: "Pressure sets",
@@ -242,7 +242,7 @@ export default function Home() {
 
       <footer className="border-t border-line bg-paper px-5 py-10 sm:px-8">
         <div className="mx-auto flex max-w-6xl flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
-          <p className="serif text-xl">arc</p>
+          <p className="serif text-xl">hoop line &amp; sinker</p>
           <p className="text-sm text-ink-faint">
             AI-assisted shooting training. Design inspired by{" "}
             <a

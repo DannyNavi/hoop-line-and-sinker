@@ -4,8 +4,8 @@ export function Nav() {
   return (
     <header className="sticky top-0 z-40 border-b border-line bg-paper/95 backdrop-blur-md">
       <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-5 sm:px-8">
-        <Link href="/" className="serif text-[1.55rem] text-ink">
-          arc
+        <Link href="/" className="serif text-[1.05rem] leading-none tracking-[-0.03em] text-ink sm:text-[1.2rem]">
+          hoop line &amp; sinker
         </Link>
 
         <nav className="hidden items-center gap-7 text-[0.92rem] font-medium text-ink md:flex">

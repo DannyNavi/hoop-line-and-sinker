@@ -1,8 +1,8 @@
-# Arc
+# Hoop, Line & Sinker
 
 AI-assisted basketball shooting training — film your reps, get live form feedback, and build a cleaner release.
 
-Design language inspired by [Fabric](https://fabric.so/): light atmospheric surfaces, expressive display type, minimal hero composition, and soft product chrome.
+Design language inspired by [Ellipsus](https://ellipsus.com/#introduction): editorial serif headlines, cream paper surfaces, dark letter-field hero, pill CTAs, and hand-drawn accents.
 
 ## Stack
 
@@ -30,7 +30,7 @@ This workspace has no GitHub auth. From your machine:
 ```bash
 gh auth login
 cd arc
-gh repo create arc --public --source=. --remote=origin --push
+gh repo create hoop-line-and-sinker --public --source=. --remote=origin --push
 ```
 
 ## Product sketch
