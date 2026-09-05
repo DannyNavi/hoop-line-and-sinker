@@ -56,7 +56,7 @@ export default function Home() {
             className="mt-9"
           >
             <Link href="/train" className="pill pill-light">
-              Start free
+              Test it out
             </Link>
           </motion.div>
         </div>
@@ -223,7 +223,7 @@ export default function Home() {
               minute.
             </p>
             <Link href="/train" className="pill pill-light mt-8">
-              Sign up — it&apos;s free
+              Test it out
             </Link>
           </motion.div>
         </div>
