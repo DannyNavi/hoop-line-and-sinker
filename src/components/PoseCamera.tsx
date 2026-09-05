@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   DrawingUtils,
   FilesetResolver,
@@ -17,6 +17,8 @@ import {
   type PoseFrame,
   type ShotPhase,
 } from "@/lib/poseToKlay";
+
+type Facing = "user" | "environment";
 
 type PoseCameraProps = {
   active: boolean;
@@ -49,14 +51,100 @@ export function PoseCamera({
   const heightsRef = useRef<number[]>([]);
   const [status, setStatus] = useState<"loading" | "ready" | "error" | "denied">("loading");
   const [errorMsg, setErrorMsg] = useState("");
+  const [facing, setFacing] = useState<Facing>("user");
+  const [canFlip, setCanFlip] = useState(false);
+  const [switching, setSwitching] = useState(false);
+
+  const streamRef = useRef<MediaStream | null>(null);
+  const facingRef = useRef<Facing>("user");
+  const activeRef = useRef(active);
 
   useEffect(() => {
     modelRef.current = model;
   }, [model]);
 
   useEffect(() => {
+    facingRef.current = facing;
+  }, [facing]);
+
+  useEffect(() => {
+    activeRef.current = active;
+  }, [active]);
+
+  const stopStream = useCallback(() => {
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    streamRef.current = null;
+    if (videoRef.current) videoRef.current.srcObject = null;
+  }, []);
+
+  const refreshFlipAvailability = useCallback(async () => {
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const cams = devices.filter((d) => d.kind === "videoinput");
+      setCanFlip(
+        cams.length > 1 || /mobile|android|iphone|ipad/i.test(navigator.userAgent),
+      );
+    } catch {
+      setCanFlip(true);
+    }
+  }, []);
+
+  const startStream = useCallback(
+    async (nextFacing: Facing) => {
+      stopStream();
+      bufferRef.current = [];
+      heightsRef.current = [];
+      lastVideoTimeRef.current = -1;
+      onBuffer([]);
+
+      let stream: MediaStream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: false,
+          video: {
+            facingMode: { ideal: nextFacing },
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+          },
+        });
+      } catch {
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: false,
+          video: true,
+        });
+      }
+
+      streamRef.current = stream;
+      const video = videoRef.current;
+      if (!video) {
+        stream.getTracks().forEach((t) => t.stop());
+        throw new Error("Video element missing");
+      }
+      video.srcObject = stream;
+      await video.play();
+      await refreshFlipAvailability();
+    },
+    [onBuffer, refreshFlipAvailability, stopStream],
+  );
+
+  const flipCamera = useCallback(async () => {
+    if (switching || status !== "ready") return;
+    const next: Facing = facingRef.current === "user" ? "environment" : "user";
+    setSwitching(true);
+    try {
+      await startStream(next);
+      setFacing(next);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Could not switch camera";
+      setErrorMsg(msg);
+      setStatus("error");
+    } finally {
+      setSwitching(false);
+    }
+  }, [startStream, status, switching]);
+
+  useEffect(() => {
     let cancelled = false;
-    let stream: MediaStream | null = null;
 
     async function setup() {
       try {
@@ -79,19 +167,8 @@ export function PoseCamera({
         }
         landmarkerRef.current = landmarker;
 
-        stream = await navigator.mediaDevices.getUserMedia({
-          audio: false,
-          video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } },
-        });
-        if (cancelled) {
-          stream.getTracks().forEach((t) => t.stop());
-          return;
-        }
-
-        const video = videoRef.current;
-        if (!video) return;
-        video.srcObject = stream;
-        await video.play();
+        await startStream(facingRef.current);
+        if (cancelled) return;
         setStatus("ready");
         tickLoop();
       } catch (err) {
@@ -110,7 +187,7 @@ export function PoseCamera({
 
       const tick = () => {
         rafRef.current = requestAnimationFrame(tick);
-        if (!active || video.readyState < 2) return;
+        if (!activeRef.current || video.readyState < 2) return;
         if (video.currentTime === lastVideoTimeRef.current) return;
         lastVideoTimeRef.current = video.currentTime;
 
@@ -122,21 +199,37 @@ export function PoseCamera({
         canvas.width = video.videoWidth || 640;
         canvas.height = video.videoHeight || 480;
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        const mirror = facingRef.current === "user";
+        if (mirror) {
+          ctx.save();
+          ctx.translate(canvas.width, 0);
+          ctx.scale(-1, 1);
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          ctx.restore();
+        } else {
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        }
 
         const pose = result.landmarks?.[0];
         if (!pose) return;
 
         const landmarks: Landmark[] = pose.map((p) => ({
-          x: p.x,
+          x: mirror ? 1 - p.x : p.x,
           y: p.y,
           z: p.z,
           visibility: p.visibility,
         }));
 
         const draw = new DrawingUtils(ctx);
-        draw.drawLandmarks(result.landmarks[0], { radius: 3, color: "#56C87C" });
-        draw.drawConnectors(result.landmarks[0], PoseLandmarker.POSE_CONNECTIONS, {
+        const drawable = landmarks.map((p) => ({
+          x: p.x,
+          y: p.y,
+          z: p.z ?? 0,
+          visibility: p.visibility ?? 1,
+        }));
+        draw.drawLandmarks(drawable, { radius: 3, color: "#56C87C" });
+        draw.drawConnectors(drawable, PoseLandmarker.POSE_CONNECTIONS, {
           color: "#FBFBF9",
           lineWidth: 2,
         });
@@ -177,8 +270,7 @@ export function PoseCamera({
       cancelAnimationFrame(rafRef.current);
       landmarkerRef.current?.close();
       landmarkerRef.current = null;
-      stream?.getTracks().forEach((t) => t.stop());
-      if (videoRef.current) videoRef.current.srcObject = null;
+      stopStream();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active]);
@@ -192,6 +284,18 @@ export function PoseCamera({
         muted
       />
       <canvas ref={canvasRef} className="absolute inset-0 h-full w-full object-cover" />
+
+      {status === "ready" && (
+        <button
+          type="button"
+          onClick={() => void flipCamera()}
+          disabled={switching || !canFlip}
+          title={canFlip ? "Switch front / rear camera" : "Only one camera detected"}
+          className="absolute right-3 top-3 z-20 rounded-full border border-white/20 bg-black/45 px-3 py-1.5 text-[11px] font-semibold text-paper backdrop-blur-md transition hover:bg-black/60 disabled:cursor-not-allowed disabled:opacity-45"
+        >
+          {switching ? "Switching…" : facing === "user" ? "Rear camera" : "Front camera"}
+        </button>
+      )}
 
       {status === "loading" && (
         <div className="absolute inset-0 flex items-center justify-center bg-ink-soft/90 text-sm text-paper/70">
