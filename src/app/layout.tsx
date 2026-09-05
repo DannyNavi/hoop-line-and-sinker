@@ -1,23 +1,24 @@
 import type { Metadata } from "next";
-import { Be_Vietnam_Pro, Manrope } from "next/font/google";
+import { DM_Sans, Newsreader } from "next/font/google";
 import "./globals.css";
 
-const display = Be_Vietnam_Pro({
-  variable: "--font-display",
+const serif = Newsreader({
+  variable: "--font-serif",
   subsets: ["latin"],
-  weight: ["600", "700", "800"],
+  weight: ["400", "500", "600", "700"],
+  style: ["normal", "italic"],
 });
 
-const sans = Manrope({
+const sans = DM_Sans({
   variable: "--font-sans",
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
 });
 
 export const metadata: Metadata = {
-  title: "Arc — AI shooting coach that sees your form",
+  title: "Arc — Shoot like a human",
   description:
-    "Arc is an AI-assisted basketball shooting training app. Film your shot, get live form feedback, and build a cleaner release.",
+    "Arc is an AI-assisted basketball shooting coach. Film your reps, get form feedback, and rebuild a cleaner release.",
 };
 
 export default function RootLayout({
@@ -26,7 +27,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${display.variable} ${sans.variable} h-full`}>
+    <html lang="en" className={`${serif.variable} ${sans.variable} h-full`}>
       <body className="min-h-full font-sans antialiased">{children}</body>
     </html>
   );

@@ -2,36 +2,58 @@
 
 import { motion } from "framer-motion";
 
+const glyphs = [
+  { ch: "a", top: "12%", left: "8%", size: "3.5rem", delay: "0s" },
+  { ch: "r", top: "22%", left: "78%", size: "4.5rem", delay: "1.2s" },
+  { ch: "c", top: "68%", left: "12%", size: "5rem", delay: "0.4s" },
+  { ch: "%", top: "18%", left: "42%", size: "2.8rem", delay: "2s" },
+  { ch: "3", top: "74%", left: "70%", size: "3.2rem", delay: "0.8s" },
+  { ch: "°", top: "48%", left: "88%", size: "3rem", delay: "1.6s" },
+  { ch: "o", top: "58%", left: "30%", size: "2.4rem", delay: "2.4s" },
+];
+
+export function FloatingGlyphs() {
+  return (
+    <>
+      {glyphs.map((g) => (
+        <span
+          key={`${g.ch}-${g.left}`}
+          className="float-glyph"
+          style={{
+            top: g.top,
+            left: g.left,
+            fontSize: g.size,
+            animationDelay: g.delay,
+          }}
+        >
+          {g.ch}
+        </span>
+      ))}
+    </>
+  );
+}
+
 export function HeroVisual() {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 28 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1], delay: 0.15 }}
-      className="relative mx-auto mt-10 w-full max-w-5xl px-4 sm:mt-14 sm:px-6"
-    >
-      <div className="float-y relative overflow-hidden rounded-[28px] border border-line bg-[#1a1d1b] shadow-[0_40px_100px_rgba(17,17,17,0.18)]">
-        <div
-          className="absolute inset-0 opacity-90"
-          style={{
-            background:
-              "radial-gradient(ellipse 60% 50% at 55% 40%, rgba(196,92,38,0.35), transparent 60%), linear-gradient(180deg, #2a322e 0%, #141816 100%)",
-          }}
-        />
-        <div className="noise" />
-
-        <div className="relative grid min-h-[420px] grid-cols-1 lg:min-h-[520px] lg:grid-cols-[1.15fr_0.85fr]">
-          <div className="relative flex flex-col p-5 sm:p-7">
-            <div className="mb-4 flex items-center justify-between text-xs font-medium text-white/55">
+    <div className="relative mx-auto mt-10 w-full max-w-5xl px-4 sm:mt-14 sm:px-6">
+      <motion.div
+        initial={{ opacity: 0, y: 28 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1], delay: 0.2 }}
+        className="sketch-card relative overflow-hidden shadow-[0_30px_80px_rgba(0,0,0,0.22)]"
+      >
+        <div className="grid min-h-[420px] lg:min-h-[500px] lg:grid-cols-[1.15fr_0.85fr]">
+          <div className="relative border-b border-ink/10 p-5 sm:p-7 lg:border-b-0 lg:border-r">
+            <div className="mb-4 flex items-center justify-between text-xs font-medium text-ink-muted">
               <span>Live form capture</span>
-              <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-white/80">
-                <span className="h-1.5 w-1.5 rounded-full bg-[#6dffa8]" />
+              <span className="inline-flex items-center gap-2 rounded-full border border-ink/15 px-3 py-1">
+                <span className="h-1.5 w-1.5 rounded-full bg-coral" />
                 Recording
               </span>
             </div>
 
-            <div className="relative flex flex-1 items-center justify-center overflow-hidden rounded-2xl bg-black/25">
-              <CourtSilhouette />
+            <div className="relative flex min-h-[300px] items-center justify-center overflow-hidden rounded-2xl bg-ink-soft sm:min-h-[360px]">
+              <CourtSketch />
               <svg
                 className="absolute inset-0 h-full w-full"
                 viewBox="0 0 640 420"
@@ -39,27 +61,18 @@ export function HeroVisual() {
                 aria-hidden
               >
                 <path
-                  className="draw-arc"
                   d="M120 320 C 220 280, 320 120, 470 90"
-                  stroke="#9dffc4"
+                  stroke="#56C87C"
                   strokeWidth="2.5"
                   strokeLinecap="round"
+                  strokeDasharray="6 8"
                 />
-                <circle cx="470" cy="90" r="7" fill="#9dffc4" />
-                <circle
-                  cx="470"
-                  cy="90"
-                  r="18"
-                  className="pulse-ring origin-center"
-                  stroke="#9dffc4"
-                  strokeWidth="1.5"
-                  fill="none"
-                />
-                <g stroke="rgba(255,255,255,0.55)" strokeWidth="1.5">
-                  <circle cx="248" cy="168" r="5" fill="rgba(255,255,255,0.8)" />
-                  <circle cx="268" cy="210" r="5" fill="rgba(255,255,255,0.8)" />
-                  <circle cx="292" cy="248" r="5" fill="rgba(255,255,255,0.8)" />
-                  <circle cx="310" cy="292" r="5" fill="rgba(255,255,255,0.8)" />
+                <circle cx="470" cy="90" r="6" fill="#56C87C" />
+                <g stroke="#FBFBF9" strokeWidth="1.6" opacity="0.85">
+                  <circle cx="248" cy="168" r="4.5" fill="#FBFBF9" />
+                  <circle cx="268" cy="210" r="4.5" fill="#FBFBF9" />
+                  <circle cx="292" cy="248" r="4.5" fill="#FBFBF9" />
+                  <circle cx="310" cy="292" r="4.5" fill="#FBFBF9" />
                   <path d="M248 168 L268 210 L292 248 L310 292" />
                   <path d="M268 210 L232 228" />
                   <path d="M268 210 L302 224" />
@@ -69,94 +82,127 @@ export function HeroVisual() {
               </svg>
 
               <div className="absolute bottom-4 left-4 right-4 flex flex-wrap gap-2">
-                <MetricChip label="Elbow angle" value="92°" tone="good" />
-                <MetricChip label="Release height" value="7'2&quot;" tone="good" />
-                <MetricChip label="Follow-through" value="Hold +0.4s" tone="warn" />
+                <Tag>Elbow 92°</Tag>
+                <Tag>Release 7&apos;2&quot;</Tag>
+                <Tag tone="warn">Follow-through short</Tag>
+              </div>
+
+              <div className="absolute left-[18%] top-[38%]">
+                <Cursor color="#FBFBF9" label="you" />
+              </div>
+              <div className="absolute right-[28%] top-[22%]">
+                <Cursor color="#DC78FF" label="coach" />
               </div>
             </div>
           </div>
 
-          <div className="border-t border-white/10 p-5 sm:p-7 lg:border-l lg:border-t-0">
+          <div className="flex flex-col p-5 sm:p-7">
             <div className="mb-5 flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-accent text-sm font-bold text-white">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-ink text-sm font-bold text-paper">
                 A
               </div>
               <div>
-                <p className="text-sm font-semibold text-white">Arc Coach</p>
-                <p className="text-xs text-white/50">Reading your last 12 reps</p>
+                <p className="text-sm font-semibold">Arc Coach</p>
+                <p className="text-xs text-ink-faint">Reading your last 12 reps</p>
               </div>
             </div>
 
-            <div className="space-y-3 text-sm leading-relaxed text-white/80">
-              <p className="rounded-2xl bg-white/8 p-4">
+            <div className="space-y-3 text-sm leading-relaxed text-ink-muted">
+              <p className="rounded-2xl border border-ink/10 bg-paper-soft p-4">
                 Your guide hand is peeling early. Keep it on the ball through the set point,
                 then finish with a quieter wrist on the balance hand.
               </p>
-              <p className="rounded-2xl bg-white/5 p-4 text-white/65">
+              <p className="rounded-2xl border border-dashed border-ink/15 p-4">
                 Dip depth looks consistent. Next set: five catch-and-shoots from the right
-                wing, hold the follow-through until the ball hits net.
+                wing — hold the follow-through until the ball hits net.
               </p>
             </div>
 
-            <div className="mt-6 grid grid-cols-3 gap-3">
+            <div className="mt-auto grid grid-cols-3 gap-3 pt-6">
               <Stat label="Makes" value="18/25" />
-              <Stat label="Form score" value="86" />
+              <Stat label="Form" value="86" />
               <Stat label="Streak" value="4" />
             </div>
           </div>
         </div>
-      </div>
-    </motion.div>
+      </motion.div>
+    </div>
   );
 }
 
-function MetricChip({
-  label,
-  value,
-  tone,
+function Tag({
+  children,
+  tone = "ok",
 }: {
-  label: string;
-  value: string;
-  tone: "good" | "warn";
+  children: React.ReactNode;
+  tone?: "ok" | "warn";
 }) {
   return (
-    <div className="rounded-full border border-white/10 bg-black/35 px-3 py-1.5 text-[11px] text-white/85 backdrop-blur-md">
-      <span className="text-white/50">{label}</span>{" "}
-      <span className={tone === "good" ? "text-[#9dffc4]" : "text-[#ffd39a]"}>{value}</span>
-    </div>
+    <span className="rounded-full border border-white/15 bg-black/40 px-3 py-1.5 text-[11px] text-paper backdrop-blur-md">
+      <span className={tone === "ok" ? "text-green" : "text-amber"}>{children}</span>
+    </span>
   );
 }
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl border border-white/8 bg-white/5 px-3 py-3">
-      <p className="text-[11px] text-white/45">{label}</p>
-      <p className="mt-1 text-lg font-semibold tracking-tight text-white">{value}</p>
+    <div className="rounded-2xl border border-ink/10 px-3 py-3">
+      <p className="text-[11px] text-ink-faint">{label}</p>
+      <p className="mt-1 text-lg font-semibold tracking-tight">{value}</p>
     </div>
   );
 }
 
-function CourtSilhouette() {
+function Cursor({ color, label }: { color: string; label: string }) {
+  return (
+    <div className="flex flex-col items-start">
+      <svg width="18" height="22" viewBox="0 0 18 22" fill="none" aria-hidden>
+        <path
+          d="M1 1 L1 17 L5.5 13.5 L9.5 21 L12 19.5 L8 12 L14 12 Z"
+          fill={color}
+          stroke="#0C0C0D"
+          strokeWidth="1"
+        />
+      </svg>
+      <span
+        className="mt-0.5 rounded-full px-2 py-0.5 text-[10px] font-semibold text-ink"
+        style={{ background: color }}
+      >
+        {label}
+      </span>
+    </div>
+  );
+}
+
+function CourtSketch() {
   return (
     <svg
       viewBox="0 0 640 420"
-      className="absolute inset-0 h-full w-full opacity-40"
+      className="absolute inset-0 h-full w-full opacity-45"
       aria-hidden
     >
-      <ellipse cx="320" cy="360" rx="220" ry="28" fill="rgba(196,92,38,0.35)" />
-      <rect x="470" y="70" width="8" height="120" rx="2" fill="rgba(255,255,255,0.35)" />
+      <ellipse
+        cx="320"
+        cy="360"
+        rx="220"
+        ry="28"
+        fill="none"
+        stroke="#FBFBF9"
+        strokeWidth="1.5"
+      />
+      <rect x="470" y="70" width="7" height="120" rx="1" fill="#FBFBF9" opacity="0.5" />
       <path
         d="M454 70 h40 a18 18 0 0 1 0 36 h-40 a18 18 0 0 1 0 -36 z"
         fill="none"
-        stroke="rgba(255,255,255,0.45)"
-        strokeWidth="4"
+        stroke="#FBFBF9"
+        strokeWidth="3"
       />
+      <path d="M90 80 l2 6 6 2 -6 2 -2 6 -2 -6 -6 -2 6 -2 z" fill="#FE6862" />
       <path
-        d="M478 106 v18"
-        stroke="rgba(255,255,255,0.25)"
-        strokeWidth="2"
-        strokeDasharray="3 4"
+        d="M560 300 l1.5 4.5 4.5 1.5 -4.5 1.5 -1.5 4.5 -1.5 -4.5 -4.5 -1.5 4.5 -1.5 z"
+        fill="#DC78FF"
       />
+      <path d="M160 250 l1 3 3 1 -3 1 -1 3 -1 -3 -3 -1 3 -1 z" fill="#56C87C" />
     </svg>
   );
 }
