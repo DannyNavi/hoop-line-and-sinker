@@ -29,7 +29,7 @@ This workspace has no GitHub auth. From your machine:
 
 ```bash
 gh auth login
-cd arc
+cd hoop-line-and-sinker
 gh repo create hoop-line-and-sinker --public --source=. --remote=origin --push
 ```
 
