@@ -1,10 +1,10 @@
 import {
-  KLAY_CUES,
   KLAY_MODEL,
   type FormCue,
   type FormPillar,
   type PillarScore,
-} from "@/lib/klayModel";
+  type ShooterModel,
+} from "@/lib/formModels";
 import {
   angleDeg,
   clamp,
@@ -35,7 +35,7 @@ export type LiveMetrics = {
   guideSeparation: number | null;
 };
 
-export type LiveKlayResult = {
+export type LiveFormResult = {
   formScore: number;
   pillars: PillarScore[];
   cue: FormCue;
@@ -43,8 +43,11 @@ export type LiveKlayResult = {
   phase: ShotPhase;
 };
 
-function makePillar(pillar: FormPillar, score: number): PillarScore {
-  const meta = KLAY_MODEL.pillars.find((p) => p.id === pillar)!;
+/** @deprecated alias */
+export type LiveKlayResult = LiveFormResult;
+
+function makePillar(model: ShooterModel, pillar: FormPillar, score: number): PillarScore {
+  const meta = model.pillars.find((p) => p.id === pillar)!;
   return {
     pillar,
     label: meta.label,
@@ -53,17 +56,22 @@ function makePillar(pillar: FormPillar, score: number): PillarScore {
   };
 }
 
-function pickCue(pillar: FormPillar, score: number, made: boolean): FormCue {
+function pickCue(
+  model: ShooterModel,
+  pillar: FormPillar,
+  score: number,
+  made: boolean,
+): FormCue {
   const wantGood = made && score >= 85;
-  const pool = KLAY_CUES.filter((c) =>
+  const pool = model.cues.filter((c) =>
     wantGood
       ? c.severity === "good" && c.pillar === pillar
       : c.pillar === pillar && c.severity !== "good",
   );
-  const fallback = KLAY_CUES.filter((c) =>
+  const fallback = model.cues.filter((c) =>
     wantGood ? c.severity === "good" : c.pillar === pillar,
   );
-  const list = pool.length ? pool : fallback.length ? fallback : KLAY_CUES;
+  const list = pool.length ? pool : fallback.length ? fallback : model.cues;
   return list[Math.floor(Math.random() * list.length)];
 }
 
@@ -193,13 +201,14 @@ export function scorePoseShot(
   frames: PoseFrame[],
   made: boolean,
   prior = 80,
-): LiveKlayResult {
+  model: ShooterModel = KLAY_MODEL,
+): LiveFormResult {
   if (!frames.length) {
-    const pillars = KLAY_MODEL.pillars.map((p) => makePillar(p.id, 70));
+    const pillars = model.pillars.map((p) => makePillar(model, p.id, 70));
     return {
       formScore: 70,
       pillars,
-      cue: pickCue("base", 70, made),
+      cue: pickCue(model, "base", 70, made),
       metrics: {
         phase: "idle",
         side: "right",
@@ -213,6 +222,7 @@ export function scorePoseShot(
     };
   }
 
+  const pose = model.pose;
   const side = inferShootingSide(frames[frames.length - 1].landmarks);
   const j = sideJoints(side);
   const heights = frames.map((f) => wristHeightNorm(f.landmarks, j.wrist) ?? 0.35);
@@ -228,29 +238,71 @@ export function scorePoseShot(
   const mRelease = computeLiveMetrics(release.landmarks, "release");
   const mLand = computeLiveMetrics(land.landmarks, "land");
 
-  const base = scoreBand(mSet.baseWidth ?? mGather.baseWidth ?? 1.1, 1.25, 0.95, 1.7);
-  const dip = scoreBand(mGather.wristHeight ?? 0.4, 0.42, 0.28, 0.55);
-  const setPoint = scoreBand(mSet.wristHeight ?? 0.65, 0.78, 0.62, 0.95);
-  const alignment = scoreBand(mSet.elbowAngle ?? 100, 95, 70, 125);
+  const base = scoreBand(
+    mSet.baseWidth ?? mGather.baseWidth ?? pose.baseWidth.ideal,
+    pose.baseWidth.ideal,
+    pose.baseWidth.lo,
+    pose.baseWidth.hi,
+  );
+  const dip = scoreBand(
+    mGather.wristHeight ?? pose.dipHeight.ideal,
+    pose.dipHeight.ideal,
+    pose.dipHeight.lo,
+    pose.dipHeight.hi,
+  );
+  const setPoint = scoreBand(
+    mSet.wristHeight ?? pose.setHeight.ideal,
+    pose.setHeight.ideal,
+    pose.setHeight.lo,
+    pose.setHeight.hi,
+  );
+  const alignment = scoreBand(
+    mSet.elbowAngle ?? pose.setElbow.ideal,
+    pose.setElbow.ideal,
+    pose.setElbow.lo,
+    pose.setElbow.hi,
+  );
 
-  const sepSet = mSet.guideSeparation ?? 0.08;
+  const sepSet = mSet.guideSeparation ?? pose.guideClearance.ideal;
   const sepRel = mRelease.guideSeparation ?? sepSet;
-  const guideHand = scoreBand(sepRel - sepSet, 0.08, 0.02, 0.22);
+  const guideHand = scoreBand(
+    sepRel - sepSet,
+    pose.guideClearance.ideal,
+    pose.guideClearance.lo,
+    pose.guideClearance.hi,
+  );
 
   const releaseScore = clamp(
-    scoreBand(mRelease.elbowAngle ?? 140, 155, 120, 175) * 0.5 +
-      scoreBand(mRelease.wristHeight ?? 0.9, 1.0, 0.8, 1.35) * 0.5,
+    scoreBand(
+      mRelease.elbowAngle ?? pose.releaseElbow.ideal,
+      pose.releaseElbow.ideal,
+      pose.releaseElbow.lo,
+      pose.releaseElbow.hi,
+    ) *
+      0.5 +
+      scoreBand(
+        mRelease.wristHeight ?? pose.releaseHeight.ideal,
+        pose.releaseHeight.ideal,
+        pose.releaseHeight.lo,
+        pose.releaseHeight.hi,
+      ) *
+        0.5,
     35,
     99,
   );
   const follow = scoreBand(
-    mLand.wristHeight ?? mRelease.wristHeight ?? 0.7,
-    0.85,
-    0.55,
-    1.2,
+    mLand.wristHeight ?? mRelease.wristHeight ?? pose.followHeight.ideal,
+    pose.followHeight.ideal,
+    pose.followHeight.lo,
+    pose.followHeight.hi,
   );
 
-  const landBase = scoreBand(mLand.baseWidth ?? 1.2, 1.25, 0.9, 1.7);
+  const landBase = scoreBand(
+    mLand.baseWidth ?? pose.baseWidth.ideal,
+    pose.baseWidth.ideal,
+    pose.baseWidth.lo * 0.95,
+    pose.baseWidth.hi,
+  );
   const ankleSetL = set.landmarks[POSE.leftAnkle];
   const ankleSetR = set.landmarks[POSE.rightAnkle];
   const ankleLandL = land.landmarks[POSE.leftAnkle];
@@ -266,18 +318,23 @@ export function scorePoseShot(
   const drift =
     visible(ankleSet) && visible(ankleLand)
       ? Math.abs(ankleLand!.y - ankleSet!.y)
-      : 0.04;
-  const landing = clamp(landBase * 0.55 + scoreBand(drift, 0.02, 0, 0.12) * 0.45, 35, 99);
+      : pose.landDrift.ideal;
+  const landing = clamp(
+    landBase * 0.55 +
+      scoreBand(drift, pose.landDrift.ideal, pose.landDrift.lo, pose.landDrift.hi) * 0.45,
+    35,
+    99,
+  );
 
   const pillars: PillarScore[] = [
-    makePillar("base", base),
-    makePillar("gather", dip),
-    makePillar("setPoint", setPoint),
-    makePillar("alignment", alignment),
-    makePillar("guideHand", guideHand),
-    makePillar("release", releaseScore),
-    makePillar("followThrough", follow),
-    makePillar("landing", landing),
+    makePillar(model, "base", base),
+    makePillar(model, "gather", dip),
+    makePillar(model, "setPoint", setPoint),
+    makePillar(model, "alignment", alignment),
+    makePillar(model, "guideHand", guideHand),
+    makePillar(model, "release", releaseScore),
+    makePillar(model, "followThrough", follow),
+    makePillar(model, "landing", landing),
   ];
 
   const avg = pillars.reduce((s, p) => s + p.score, 0) / pillars.length;
@@ -287,28 +344,79 @@ export function scorePoseShot(
   return {
     formScore,
     pillars,
-    cue: pickCue(weakest.pillar, weakest.score, made),
+    cue: pickCue(model, weakest.pillar, weakest.score, made),
     metrics: { ...mRelease, phase },
     phase,
   };
 }
 
-export function previewPillarsFromPose(landmarks: Landmark[]): {
+export function previewPillarsFromPose(
+  landmarks: Landmark[],
+  model: ShooterModel = KLAY_MODEL,
+): {
   pillars: PillarScore[];
   metrics: LiveMetrics;
 } {
   const metrics = computeLiveMetrics(landmarks);
+  const pose = model.pose;
   return {
     metrics,
     pillars: [
-      makePillar("base", scoreBand(metrics.baseWidth ?? 1.1, 1.25, 0.95, 1.7)),
-      makePillar("gather", scoreBand(metrics.wristHeight ?? 0.45, 0.42, 0.25, 0.6)),
-      makePillar("setPoint", scoreBand(metrics.wristHeight ?? 0.6, 0.78, 0.55, 1.05)),
-      makePillar("alignment", scoreBand(metrics.elbowAngle ?? 100, 95, 70, 130)),
-      makePillar("guideHand", scoreBand(metrics.guideSeparation ?? 0.1, 0.12, 0.04, 0.25)),
-      makePillar("release", scoreBand(metrics.elbowAngle ?? 140, 155, 110, 175)),
-      makePillar("followThrough", scoreBand(metrics.wristHeight ?? 0.7, 0.85, 0.5, 1.2)),
-      makePillar("landing", scoreBand(metrics.baseWidth ?? 1.1, 1.25, 0.9, 1.7)),
+      makePillar(
+        model,
+        "base",
+        scoreBand(metrics.baseWidth ?? pose.baseWidth.ideal, pose.baseWidth.ideal, pose.baseWidth.lo, pose.baseWidth.hi),
+      ),
+      makePillar(
+        model,
+        "gather",
+        scoreBand(metrics.wristHeight ?? pose.dipHeight.ideal, pose.dipHeight.ideal, pose.dipHeight.lo, pose.dipHeight.hi),
+      ),
+      makePillar(
+        model,
+        "setPoint",
+        scoreBand(metrics.wristHeight ?? pose.setHeight.ideal, pose.setHeight.ideal, pose.setHeight.lo, pose.setHeight.hi),
+      ),
+      makePillar(
+        model,
+        "alignment",
+        scoreBand(metrics.elbowAngle ?? pose.setElbow.ideal, pose.setElbow.ideal, pose.setElbow.lo, pose.setElbow.hi),
+      ),
+      makePillar(
+        model,
+        "guideHand",
+        scoreBand(
+          metrics.guideSeparation ?? pose.guideClearance.ideal,
+          pose.guideClearance.ideal,
+          pose.guideClearance.lo,
+          pose.guideClearance.hi,
+        ),
+      ),
+      makePillar(
+        model,
+        "release",
+        scoreBand(
+          metrics.elbowAngle ?? pose.releaseElbow.ideal,
+          pose.releaseElbow.ideal,
+          pose.releaseElbow.lo,
+          pose.releaseElbow.hi,
+        ),
+      ),
+      makePillar(
+        model,
+        "followThrough",
+        scoreBand(
+          metrics.wristHeight ?? pose.followHeight.ideal,
+          pose.followHeight.ideal,
+          pose.followHeight.lo,
+          pose.followHeight.hi,
+        ),
+      ),
+      makePillar(
+        model,
+        "landing",
+        scoreBand(metrics.baseWidth ?? pose.baseWidth.ideal, pose.baseWidth.ideal, pose.baseWidth.lo, pose.baseWidth.hi),
+      ),
     ],
   };
 }

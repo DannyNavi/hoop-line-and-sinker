@@ -5,12 +5,14 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { PoseCamera } from "@/components/PoseCamera";
 import {
-  KLAY_MODEL,
-  pickKlayDrill,
-  scoreRepAgainstKlay,
+  FORM_MODELS,
+  getShooterModel,
+  pickModelDrill,
+  scoreRepAgainstModel,
   type FormCue,
   type PillarScore,
-} from "@/lib/klayModel";
+  type ShooterId,
+} from "@/lib/formModels";
 import {
   scorePoseShot,
   type LiveMetrics,
@@ -21,30 +23,34 @@ import {
 type Cue = FormCue & { id: number };
 
 export default function TrainPage() {
+  const [shooterId, setShooterId] = useState<ShooterId>("klay");
+  const model = useMemo(() => getShooterModel(shooterId), [shooterId]);
+
   const [reps, setReps] = useState(0);
   const [makes, setMakes] = useState(0);
   const [formScore, setFormScore] = useState(82);
   const [recording, setRecording] = useState(true);
   const [phase, setPhase] = useState<ShotPhase>("idle");
   const [metrics, setMetrics] = useState<LiveMetrics | null>(null);
-  const [pillars, setPillars] = useState<PillarScore[]>(
-    KLAY_MODEL.pillars.map((p) => ({
+  const [pillars, setPillars] = useState<PillarScore[]>(() =>
+    model.pillars.map((p) => ({
       pillar: p.id,
       label: p.label,
       score: 80,
       target: p.target,
     })),
   );
-  const [drill, setDrill] = useState(() => pickKlayDrill());
+  const [drill, setDrill] = useState(() => pickModelDrill(model));
   const [cues, setCues] = useState<Cue[]>([
     {
       id: 0,
       pillar: "base",
       title: "Pose model ready",
       detail:
-        "Allow the camera, stand so your full body is visible, then shoot. Sinker maps your joints onto Klay's checklist.",
+        "Pick Klay, Steph, or Dame — then allow the camera and shoot. Sinker maps your joints onto that checklist.",
       severity: "good",
-      klayTarget: KLAY_MODEL.tagline,
+      ideal: model.tagline,
+      klayTarget: model.tagline,
     },
   ]);
 
@@ -58,6 +64,33 @@ export default function TrainPage() {
     () => [...pillars].sort((a, b) => a.score - b.score)[0],
     [pillars],
   );
+
+  function selectShooter(id: ShooterId) {
+    const next = getShooterModel(id);
+    setShooterId(id);
+    setPillars(
+      next.pillars.map((p) => ({
+        pillar: p.id,
+        label: p.label,
+        score: 80,
+        target: p.target,
+      })),
+    );
+    setDrill(pickModelDrill(next));
+    setCues([
+      {
+        id: Date.now(),
+        pillar: "base",
+        title: `${next.shortName} model loaded`,
+        detail: next.summary,
+        severity: "good",
+        ideal: next.tagline,
+        klayTarget: next.tagline,
+      },
+    ]);
+    setFormScore(82);
+    bufferRef.current = [];
+  }
 
   const onLiveUpdate = useCallback(
     (data: { pillars: PillarScore[]; metrics: LiveMetrics; phase: ShotPhase }) => {
@@ -77,9 +110,9 @@ export default function TrainPage() {
     const frames = bufferRef.current;
     const result =
       frames.length >= 8
-        ? scorePoseShot(frames, made, formScore)
+        ? scorePoseShot(frames, made, formScore, model)
         : (() => {
-            const synthetic = scoreRepAgainstKlay(made, formScore);
+            const synthetic = scoreRepAgainstModel(model, made, formScore);
             return {
               formScore: synthetic.formScore,
               pillars: synthetic.pillars,
@@ -92,7 +125,7 @@ export default function TrainPage() {
     setFormScore(result.formScore);
     setPillars(result.pillars);
     setCues((prev) => [{ ...result.cue, id: Date.now() }, ...prev].slice(0, 5));
-    setDrill(pickKlayDrill(result.cue.pillar));
+    setDrill(pickModelDrill(model, result.cue.pillar));
     bufferRef.current = bufferRef.current.slice(-15);
   }
 
@@ -105,7 +138,7 @@ export default function TrainPage() {
           </Link>
           <div className="flex items-center gap-3 text-sm">
             <span className="hidden rounded-full border border-ink/15 px-3 py-1.5 text-xs font-medium text-ink-muted sm:inline">
-              Live pose · {KLAY_MODEL.athlete}
+              Live pose · {model.athlete}
             </span>
             <button
               type="button"
@@ -123,8 +156,8 @@ export default function TrainPage() {
 
       <main className="mx-auto grid max-w-6xl gap-6 px-5 py-8 sm:px-8 lg:grid-cols-[1.15fr_0.85fr]">
         <section className="sketch-card overflow-hidden">
-          <div className="flex items-center justify-between border-b border-ink/10 px-5 py-4 text-sm text-ink-muted">
-            <span>Court camera · MediaPipe pose → Klay model</span>
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-ink/10 px-5 py-4 text-sm text-ink-muted">
+            <span>Court camera · MediaPipe → {model.shortName} model</span>
             <span className="inline-flex items-center gap-2">
               <span
                 className={`h-1.5 w-1.5 rounded-full ${recording ? "bg-green" : "bg-ink-faint"}`}
@@ -133,10 +166,35 @@ export default function TrainPage() {
             </span>
           </div>
 
+          <div className="flex flex-wrap gap-2 border-b border-ink/10 px-5 py-3">
+            {FORM_MODELS.map((m) => {
+              const selected = m.id === shooterId;
+              return (
+                <button
+                  key={m.id}
+                  type="button"
+                  onClick={() => selectShooter(m.id)}
+                  className={`rounded-full border px-3.5 py-1.5 text-xs font-semibold transition ${
+                    selected
+                      ? "border-ink bg-ink text-paper"
+                      : "border-ink/15 bg-paper text-ink-muted hover:border-ink/40 hover:text-ink"
+                  }`}
+                >
+                  <span
+                    className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full"
+                    style={{ background: selected ? "currentColor" : m.accent }}
+                  />
+                  {m.shortName}
+                </button>
+              );
+            })}
+          </div>
+
           <div className="relative min-h-[400px] p-5 sm:min-h-[520px]">
             <div className="absolute inset-5">
               <PoseCamera
                 active={recording}
+                model={model}
                 onLiveUpdate={onLiveUpdate}
                 onBuffer={onBuffer}
               />
@@ -160,7 +218,7 @@ export default function TrainPage() {
               Log miss
             </button>
             <p className="self-center text-xs text-ink-faint">
-              Shoot in frame, then log — Sinker scores the pose buffer against Klay.
+              Shoot in frame, then log — Sinker scores against {model.shortName}.
             </p>
           </div>
         </section>
@@ -169,18 +227,18 @@ export default function TrainPage() {
           <div className="grid grid-cols-3 gap-3">
             <Metric label="Reps" value={String(reps)} />
             <Metric label="Make %" value={`${pct}%`} />
-            <Metric label="Klay fit" value={String(formScore)} />
+            <Metric label={`${model.shortName} fit`} value={String(formScore)} />
           </div>
 
           <div className="sketch-card p-5">
             <div className="mb-3 flex items-baseline justify-between gap-3">
               <div>
                 <p className="hand-note text-sm">Form model</p>
-                <p className="serif mt-1 text-xl">{KLAY_MODEL.athlete}</p>
+                <p className="serif mt-1 text-xl">{model.athlete}</p>
               </div>
-              <p className="text-xs font-medium text-ink-faint">{KLAY_MODEL.tagline}</p>
+              <p className="text-xs font-medium text-ink-faint">{model.tagline}</p>
             </div>
-            <p className="text-sm leading-relaxed text-ink-muted">{KLAY_MODEL.summary}</p>
+            <p className="text-sm leading-relaxed text-ink-muted">{model.summary}</p>
             <div className="mt-4 space-y-2">
               {pillars.map((p) => (
                 <div key={p.pillar}>
@@ -190,7 +248,8 @@ export default function TrainPage() {
                   </div>
                   <div className="h-1.5 overflow-hidden rounded-full bg-paper-mute">
                     <motion.div
-                      className="h-full rounded-full bg-ink"
+                      className="h-full rounded-full"
+                      style={{ background: model.accent }}
                       initial={false}
                       animate={{ width: `${p.score}%` }}
                       transition={{ duration: 0.35 }}
@@ -208,7 +267,7 @@ export default function TrainPage() {
               </div>
               <div>
                 <p className="font-semibold">Sinker</p>
-                <p className="text-sm text-ink-faint">Live pose → Klay cues</p>
+                <p className="text-sm text-ink-faint">Live pose → {model.shortName} cues</p>
               </div>
             </div>
             <div className="space-y-3">
@@ -234,7 +293,9 @@ export default function TrainPage() {
                       <h3 className="text-sm font-semibold">{cue.title}</h3>
                     </div>
                     <p className="text-sm leading-relaxed text-ink-muted">{cue.detail}</p>
-                    <p className="mt-2 text-[11px] text-ink-faint">Target · {cue.klayTarget}</p>
+                    <p className="mt-2 text-[11px] text-ink-faint">
+                      Target · {cue.ideal ?? cue.klayTarget}
+                    </p>
                   </motion.article>
                 ))}
               </AnimatePresence>
@@ -242,7 +303,7 @@ export default function TrainPage() {
           </div>
 
           <div className="sketch-card p-5">
-            <p className="hand-note text-sm">Klay drill</p>
+            <p className="hand-note text-sm">{model.shortName} drill</p>
             <p className="serif mt-1 text-xl">{drill.name}</p>
             <p className="mt-2 text-sm leading-relaxed text-ink-muted">{drill.note}</p>
             <p className="mt-3 text-xs font-medium text-ink-faint">

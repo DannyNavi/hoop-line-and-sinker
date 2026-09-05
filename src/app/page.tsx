@@ -4,6 +4,7 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { Nav } from "@/components/Nav";
 import { FloatingGlyphs, HeroVisual } from "@/components/HeroVisual";
+import { FORM_MODELS } from "@/lib/formModels";
 
 const fade = {
   initial: { opacity: 0, y: 22 },
@@ -25,7 +26,7 @@ export default function Home() {
             animate={{ opacity: 1 }}
             className="mb-6 text-sm font-medium tracking-wide text-paper/55"
           >
-            Form model · Klay Thompson
+            Form models · Klay · Steph · Dame
           </motion.p>
 
           <motion.h1
@@ -44,8 +45,8 @@ export default function Home() {
             transition={{ duration: 0.75, delay: 0.08 }}
             className="mx-auto mt-6 max-w-lg text-base leading-relaxed text-paper/65 sm:text-lg"
           >
-            Hoop, Line & Sinker coaches your jumper against a Klay Thompson form model — wide base,
-            quick hip dip, high set point, quiet guide hand.
+            Train your jumper against Klay, Steph, or Dame — live pose cues matched to each
+            shooter’s checklist.
           </motion.p>
 
           <motion.div
@@ -82,47 +83,35 @@ export default function Home() {
         className="mx-auto max-w-3xl px-5 py-20 text-center sm:px-8 sm:py-28"
       >
         <motion.div {...fade}>
-          <p className="hand-note mb-4 text-lg">Trained on a Splash form.</p>
+          <p className="hand-note mb-4 text-lg">Pick your form model.</p>
           <h2 className="serif text-3xl text-ink sm:text-5xl">
-            Coached like Klay shoots
+            Coached like the greats shoot
           </h2>
           <p className="mx-auto mt-5 max-w-xl text-base leading-relaxed text-ink-muted sm:text-lg">
-            Every cue maps to Thompson&apos;s catch-and-shoot checklist — base, dip, set point,
-            guide hand, release, and land — so feedback stays specific, not generic.
+            Every cue maps to a real jumper&apos;s checklist — Splash purity, Curry fluidity, or
+            Dame logo power — so feedback stays specific, not generic.
           </p>
         </motion.div>
       </section>
 
       <section id="form" className="mx-auto max-w-6xl px-5 pb-20 sm:px-8 sm:pb-28">
         <div className="grid gap-5 md:grid-cols-3">
-          {[
-            {
-              title: "Wide base, ready feet",
-              body: "Hop into a flexed catch like Klay — outside shoulder-width so the rise stays on line.",
-              color: "#FE6862",
-            },
-            {
-              title: "Dip, then set high",
-              body: "Quick bounce to the hip, forehead set point before you leave the floor.",
-              color: "#DC78FF",
-            },
-            {
-              title: "Quiet hand, soft snap",
-              body: "Guide hand clears early. Relaxed wrist, high elbow — Splash-Brothers arc.",
-              color: "#56C87C",
-            },
-          ].map((item, i) => (
+          {FORM_MODELS.map((item, i) => (
             <motion.article
-              key={item.title}
+              key={item.id}
               initial={{ opacity: 0, y: 18 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.55, delay: i * 0.08 }}
               className="sketch-card relative p-7"
             >
-              <Sparkle className="absolute right-5 top-5" color={item.color} />
-              <h3 className="serif text-2xl text-ink">{item.title}</h3>
-              <p className="mt-3 text-sm leading-relaxed text-ink-muted">{item.body}</p>
+              <Sparkle className="absolute right-5 top-5" color={item.accent} />
+              <p className="text-xs font-semibold uppercase tracking-wide text-ink-faint">
+                {item.shortName}
+              </p>
+              <h3 className="serif mt-2 text-2xl text-ink">{item.athlete}</h3>
+              <p className="mt-1 text-sm font-medium text-ink">{item.tagline}</p>
+              <p className="mt-3 text-sm leading-relaxed text-ink-muted">{item.summary}</p>
             </motion.article>
           ))}
         </div>

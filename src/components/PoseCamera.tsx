@@ -6,7 +6,8 @@ import {
   FilesetResolver,
   PoseLandmarker,
 } from "@mediapipe/tasks-vision";
-import type { PillarScore } from "@/lib/klayModel";
+import type { PillarScore, ShooterModel } from "@/lib/formModels";
+import { KLAY_MODEL } from "@/lib/formModels";
 import type { Landmark } from "@/lib/poseGeometry";
 import { inferShootingSide, sideJoints } from "@/lib/poseGeometry";
 import {
@@ -19,6 +20,7 @@ import {
 
 type PoseCameraProps = {
   active: boolean;
+  model?: ShooterModel;
   onLiveUpdate: (data: {
     pillars: PillarScore[];
     metrics: LiveMetrics;
@@ -31,16 +33,26 @@ const MODEL_URL =
   "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task";
 const WASM_URL = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.0.1/wasm";
 
-export function PoseCamera({ active, onLiveUpdate, onBuffer }: PoseCameraProps) {
+export function PoseCamera({
+  active,
+  model = KLAY_MODEL,
+  onLiveUpdate,
+  onBuffer,
+}: PoseCameraProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const landmarkerRef = useRef<PoseLandmarker | null>(null);
+  const modelRef = useRef(model);
   const rafRef = useRef(0);
   const lastVideoTimeRef = useRef(-1);
   const bufferRef = useRef<PoseFrame[]>([]);
   const heightsRef = useRef<number[]>([]);
   const [status, setStatus] = useState<"loading" | "ready" | "error" | "denied">("loading");
   const [errorMsg, setErrorMsg] = useState("");
+
+  useEffect(() => {
+    modelRef.current = model;
+  }, [model]);
 
   useEffect(() => {
     let cancelled = false;
@@ -129,7 +141,7 @@ export function PoseCamera({ active, onLiveUpdate, onBuffer }: PoseCameraProps) 
           lineWidth: 2,
         });
 
-        const preview = previewPillarsFromPose(landmarks);
+        const preview = previewPillarsFromPose(landmarks, modelRef.current);
         const side = inferShootingSide(landmarks);
         const wristIdx = sideJoints(side).wrist;
         const wrist = landmarks[wristIdx];
@@ -183,12 +195,12 @@ export function PoseCamera({ active, onLiveUpdate, onBuffer }: PoseCameraProps) 
 
       {status === "loading" && (
         <div className="absolute inset-0 flex items-center justify-center bg-ink-soft/90 text-sm text-paper/70">
-          Loading Klay pose model…
+          Loading pose model…
         </div>
       )}
       {status === "denied" && (
         <div className="absolute inset-0 flex items-center justify-center bg-ink-soft/95 p-6 text-center text-sm text-paper/80">
-          Camera permission denied. Allow camera access to run live Klay form tracking.
+          Camera permission denied. Allow camera access to run live form tracking.
         </div>
       )}
       {status === "error" && (

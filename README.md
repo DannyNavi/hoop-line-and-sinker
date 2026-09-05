@@ -1,27 +1,22 @@
 # Hoop, Line & Sinker
 
-AI-assisted basketball shooting training coached against a **Klay Thompson form model**.
+AI-assisted basketball shooting training coached against form models for **Klay Thompson**, **Stephen Curry**, and **Damian Lillard**.
 
-Design language inspired by [Ellipsus](https://ellipsus.com/#introduction). Form model distilled from published breakdowns of Thompson's catch-and-shoot jumper.
+Design language inspired by [Ellipsus](https://ellipsus.com/#introduction).
 
-## Klay form model
+## Form models
 
-The coaching engine in `src/lib/klayModel.ts` scores each rep on eight pillars:
+The coaching engine in `src/lib/formModels.ts` scores each rep on eight pillars (base, gather, set point, alignment, guide hand, release, follow-through, landing). Ideal pose bands, cues, and drills differ per athlete:
 
-1. Wide base
-2. Compact dip
-3. High set point
-4. Straight line / elbow in
-5. Quiet guide hand
-6. Relaxed release
-7. Efficient follow-through
-8. Vertical land
+- **Klay** — catch-and-shoot purity
+- **Steph** — one-motion fluidity
+- **Dame** — logo power / step-back rise
 
-Sinker returns cues + a matching drill.
+Pick a model on `/train`. Sinker returns cues + a matching drill.
 
 ## Live pose tracking
 
-`/train` runs **MediaPipe Pose** in the browser, estimates joints from your webcam, and maps them onto the Klay checklist (base width, dip height, set point, elbow angle, guide-hand clearance, release, follow-through, landing). Log make/miss after a rep to score the pose buffer.
+`/train` runs **MediaPipe Pose** in the browser, estimates joints from your webcam, and maps them onto the selected checklist. Log make/miss after a rep to score the pose buffer.
 
 ## Stack
 
@@ -38,8 +33,4 @@ npm run dev
 ```
 
 - `/` — marketing site
-- `/train` — Klay-model coaching session (log makes/misses)
-
-## Repo
-
-https://github.com/DannyNavi/hoop-line-and-sinker
+- `/train` — live coaching session
