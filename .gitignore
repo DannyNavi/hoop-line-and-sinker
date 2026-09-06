@@ -39,3 +39,12 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# spring / java
+backend/target/
+backend/uploads/
+*.class
+*.jar
+!backend/**/mvnw
+!backend/**/mvnw.cmd
+Danny_Nguyen_Resume.tex

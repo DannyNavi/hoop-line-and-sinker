@@ -10,6 +10,7 @@ import type { PillarScore, ShooterModel } from "@/lib/formModels";
 import { KLAY_MODEL } from "@/lib/formModels";
 import type { Landmark } from "@/lib/poseGeometry";
 import { inferShootingSide, sideJoints } from "@/lib/poseGeometry";
+import { POSE_MODEL_URL, POSE_WASM_URL } from "@/lib/mediapipeConfig";
 import {
   inferPhaseFromHeights,
   previewPillarsFromPose,
@@ -30,10 +31,6 @@ type PoseCameraProps = {
   }) => void;
   onBuffer: (frames: PoseFrame[]) => void;
 };
-
-const MODEL_URL =
-  "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task";
-const WASM_URL = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.0.1/wasm";
 
 export function PoseCamera({
   active,
@@ -149,10 +146,10 @@ export function PoseCamera({
     async function setup() {
       try {
         setStatus("loading");
-        const vision = await FilesetResolver.forVisionTasks(WASM_URL);
+        const vision = await FilesetResolver.forVisionTasks(POSE_WASM_URL);
         const landmarker = await PoseLandmarker.createFromOptions(vision, {
           baseOptions: {
-            modelAssetPath: MODEL_URL,
+            modelAssetPath: POSE_MODEL_URL,
             delegate: "GPU",
           },
           runningMode: "VIDEO",

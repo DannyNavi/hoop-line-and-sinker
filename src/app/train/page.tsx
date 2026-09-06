@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { PoseCamera } from "@/components/PoseCamera";
+import { PoseVideo } from "@/components/PoseVideo";
 import {
   FORM_MODELS,
   getShooterModel,
@@ -19,13 +20,16 @@ import {
   type PoseFrame,
   type ShotPhase,
 } from "@/lib/poseToKlay";
+import { getApiBase, listVideos, uploadVideo, type UploadedVideo } from "@/lib/videoApi";
 
 type Cue = FormCue & { id: number };
+type SourceMode = "live" | "upload";
 
 export default function TrainPage() {
   const [shooterId, setShooterId] = useState<ShooterId>("klay");
   const model = useMemo(() => getShooterModel(shooterId), [shooterId]);
 
+  const [sourceMode, setSourceMode] = useState<SourceMode>("live");
   const [reps, setReps] = useState(0);
   const [makes, setMakes] = useState(0);
   const [formScore, setFormScore] = useState(82);
@@ -47,12 +51,20 @@ export default function TrainPage() {
       pillar: "base",
       title: "Pose model ready",
       detail:
-        "Pick Klay, Steph, or Dame — then allow the camera and shoot. Sinker maps your joints onto that checklist.",
+        "Use the live camera or upload a clip. Sinker maps joints onto the selected shooter’s checklist.",
       severity: "good",
       ideal: model.tagline,
       klayTarget: model.tagline,
     },
   ]);
+
+  const [localVideoUrl, setLocalVideoUrl] = useState<string | null>(null);
+  const [localFileName, setLocalFileName] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [savedVideos, setSavedVideos] = useState<UploadedVideo[]>([]);
+  const [apiOnline, setApiOnline] = useState<boolean | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const bufferRef = useRef<PoseFrame[]>([]);
   const lastLogAtRef = useRef(0);
@@ -70,6 +82,27 @@ export default function TrainPage() {
     () => [...pillars].sort((a, b) => a.score - b.score)[0],
     [pillars],
   );
+
+  const refreshSaved = useCallback(async () => {
+    try {
+      const videos = await listVideos();
+      setSavedVideos(videos);
+      setApiOnline(true);
+      setUploadError(null);
+    } catch {
+      setApiOnline(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void refreshSaved();
+  }, [refreshSaved]);
+
+  useEffect(() => {
+    return () => {
+      if (localVideoUrl?.startsWith("blob:")) URL.revokeObjectURL(localVideoUrl);
+    };
+  }, [localVideoUrl]);
 
   function selectShooter(id: ShooterId) {
     const next = getShooterModel(id);
@@ -112,6 +145,59 @@ export default function TrainPage() {
     bufferRef.current = frames;
   }, []);
 
+  function switchMode(mode: SourceMode) {
+    setSourceMode(mode);
+    bufferRef.current = [];
+    lastLogAtRef.current = 0;
+    setLogHint(
+      mode === "live"
+        ? "Shoot in frame, then log — Sinker only scores real shot motion."
+        : "Play the clip through a shot, then log make/miss.",
+    );
+  }
+
+  async function handleFilePicked(file: File | null) {
+    if (!file) return;
+    if (!file.type.startsWith("video/")) {
+      setUploadError("Please choose a video file (mp4, webm, mov).");
+      return;
+    }
+
+    if (localVideoUrl?.startsWith("blob:")) URL.revokeObjectURL(localVideoUrl);
+    const blobUrl = URL.createObjectURL(file);
+    setLocalVideoUrl(blobUrl);
+    setLocalFileName(file.name);
+    setUploadError(null);
+    switchMode("upload");
+    bufferRef.current = [];
+    lastLogAtRef.current = 0;
+
+    setUploading(true);
+    try {
+      const saved = await uploadVideo(file);
+      setSavedVideos((prev) => [saved, ...prev.filter((v) => v.id !== saved.id)]);
+      setApiOnline(true);
+      const savedCue: Cue = {
+        id: Date.now(),
+        pillar: "base",
+        title: "Clip saved",
+        detail: `Stored “${saved.originalName}” on the Spring API. Analyzing locally with MediaPipe.`,
+        severity: "good",
+        ideal: "Uploaded clip ready",
+        klayTarget: "Uploaded clip ready",
+      };
+      setCues((prev) => [savedCue, ...prev].slice(0, 5));
+    } catch (err) {
+      setApiOnline(false);
+      const msg = err instanceof Error ? err.message : "Upload failed";
+      setUploadError(
+        `Analyzing locally. Spring save skipped — start the API on :8080 to persist. (${msg})`,
+      );
+    } finally {
+      setUploading(false);
+    }
+  }
+
   function takeShot(made: boolean) {
     const wallNow = Date.now();
     if (!logArmed || wallNow - (lastLogWallRef.current || 0) < 1500) {
@@ -119,7 +205,6 @@ export default function TrainPage() {
       return;
     }
 
-    // Only score motion captured since the last log (camera uses performance.now timestamps).
     const frames = bufferRef.current.filter((f) => f.t > lastLogAtRef.current);
     const readiness = evaluateShotReadiness(frames);
     if (!readiness.ok) {
@@ -162,15 +247,17 @@ export default function TrainPage() {
           </Link>
           <div className="flex items-center gap-3 text-sm">
             <span className="hidden rounded-full border border-ink/15 px-3 py-1.5 text-xs font-medium text-ink-muted sm:inline">
-              Live pose · {model.athlete}
+              {sourceMode === "live" ? "Live pose" : "Uploaded clip"} · {model.athlete}
             </span>
-            <button
-              type="button"
-              onClick={() => setRecording((v) => !v)}
-              className="pill pill-outline px-4 py-2"
-            >
-              {recording ? "Pause camera" : "Resume camera"}
-            </button>
+            {sourceMode === "live" && (
+              <button
+                type="button"
+                onClick={() => setRecording((v) => !v)}
+                className="pill pill-outline px-4 py-2"
+              >
+                {recording ? "Pause camera" : "Resume camera"}
+              </button>
+            )}
             <Link href="/" className="font-semibold text-ink-muted hover:text-ink">
               Exit
             </Link>
@@ -181,7 +268,10 @@ export default function TrainPage() {
       <main className="mx-auto grid max-w-6xl gap-6 px-5 py-8 sm:px-8 lg:grid-cols-[1.15fr_0.85fr]">
         <section className="sketch-card overflow-hidden">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-ink/10 px-5 py-4 text-sm text-ink-muted">
-            <span>Court camera · MediaPipe → {model.shortName} model</span>
+            <span>
+              {sourceMode === "live" ? "Court camera" : "Uploaded video"} · MediaPipe →{" "}
+              {model.shortName}
+            </span>
             <span className="inline-flex items-center gap-2">
               <span
                 className={`h-1.5 w-1.5 rounded-full ${recording ? "bg-green" : "bg-ink-faint"}`}
@@ -190,7 +280,43 @@ export default function TrainPage() {
             </span>
           </div>
 
-          <div className="flex flex-wrap gap-2 border-b border-ink/10 px-5 py-3">
+          <div className="flex flex-wrap items-center gap-2 border-b border-ink/10 px-5 py-3">
+            <button
+              type="button"
+              onClick={() => switchMode("live")}
+              className={`rounded-full border px-3.5 py-1.5 text-xs font-semibold transition ${
+                sourceMode === "live"
+                  ? "border-ink bg-ink text-paper"
+                  : "border-ink/15 bg-paper text-ink-muted hover:border-ink/40 hover:text-ink"
+              }`}
+            >
+              Live camera
+            </button>
+            <button
+              type="button"
+              onClick={() => switchMode("upload")}
+              className={`rounded-full border px-3.5 py-1.5 text-xs font-semibold transition ${
+                sourceMode === "upload"
+                  ? "border-ink bg-ink text-paper"
+                  : "border-ink/15 bg-paper text-ink-muted hover:border-ink/40 hover:text-ink"
+              }`}
+            >
+              Upload clip
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="video/mp4,video/webm,video/quicktime,video/*"
+              className="hidden"
+              onChange={(e) => void handleFilePicked(e.target.files?.[0] ?? null)}
+            />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="rounded-full border border-ink/15 px-3.5 py-1.5 text-xs font-semibold text-ink-muted hover:border-ink/40 hover:text-ink"
+            >
+              {uploading ? "Saving…" : "Choose video"}
+            </button>
             {FORM_MODELS.map((m) => {
               const selected = m.id === shooterId;
               return (
@@ -214,14 +340,38 @@ export default function TrainPage() {
             })}
           </div>
 
+          {(uploadError || localFileName || apiOnline === false) && (
+            <div className="border-b border-ink/10 px-5 py-2 text-xs text-ink-faint">
+              {localFileName ? `Loaded · ${localFileName}` : null}
+              {localFileName && (uploadError || apiOnline === false) ? " · " : null}
+              {uploadError
+                ? uploadError
+                : apiOnline === false
+                  ? `Spring API offline (${getApiBase()}). Local analysis still works.`
+                  : apiOnline
+                    ? "Spring API connected — clips can persist."
+                    : null}
+            </div>
+          )}
+
           <div className="relative min-h-[400px] p-5 sm:min-h-[520px]">
             <div className="absolute inset-5">
-              <PoseCamera
-                active={recording}
-                model={model}
-                onLiveUpdate={onLiveUpdate}
-                onBuffer={onBuffer}
-              />
+              {sourceMode === "live" ? (
+                <PoseCamera
+                  active={recording}
+                  model={model}
+                  onLiveUpdate={onLiveUpdate}
+                  onBuffer={onBuffer}
+                />
+              ) : (
+                <PoseVideo
+                  active={recording}
+                  src={localVideoUrl}
+                  model={model}
+                  onLiveUpdate={onLiveUpdate}
+                  onBuffer={onBuffer}
+                />
+              )}
             </div>
             <div className="pointer-events-none absolute bottom-8 left-8 right-8 z-10 flex flex-wrap gap-2">
               <Chip>Base {pillars.find((p) => p.pillar === "base")?.score ?? "—"}</Chip>
@@ -233,6 +383,27 @@ export default function TrainPage() {
               <Chip>{metrics?.side === "left" ? "L" : "R"} hand</Chip>
             </div>
           </div>
+
+          {sourceMode === "upload" && savedVideos.length > 0 && (
+            <div className="flex flex-wrap gap-2 border-t border-ink/10 px-5 py-3">
+              {savedVideos.slice(0, 6).map((v) => (
+                <button
+                  key={v.id}
+                  type="button"
+                  onClick={() => {
+                    if (localVideoUrl?.startsWith("blob:")) URL.revokeObjectURL(localVideoUrl);
+                    setLocalVideoUrl(v.url);
+                    setLocalFileName(v.originalName);
+                    bufferRef.current = [];
+                    lastLogAtRef.current = 0;
+                  }}
+                  className="rounded-full border border-ink/10 px-3 py-1 text-[11px] text-ink-muted hover:border-ink/30 hover:text-ink"
+                >
+                  {v.originalName}
+                </button>
+              ))}
+            </div>
+          )}
 
           <div className="relative z-10 flex flex-wrap gap-3 border-t border-ink/10 px-5 py-4">
             <button
@@ -299,7 +470,9 @@ export default function TrainPage() {
               </div>
               <div>
                 <p className="font-semibold">Sinker</p>
-                <p className="text-sm text-ink-faint">Live pose → {model.shortName} cues</p>
+                <p className="text-sm text-ink-faint">
+                  {sourceMode === "live" ? "Live pose" : "Uploaded clip"} → {model.shortName} cues
+                </p>
               </div>
             </div>
             <div className="space-y-3">
