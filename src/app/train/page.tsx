@@ -49,7 +49,7 @@ export default function TrainPage() {
       pillar: "base",
       title: "Pose model ready",
       detail:
-        "Use the live camera or upload a clip. Sinker maps joints onto the selected shooter’s checklist.",
+        "Use the live camera or choose a video. Sinker maps joints onto the selected shooter’s checklist.",
       severity: "good",
       ideal: model.tagline,
       klayTarget: model.tagline,
