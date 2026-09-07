@@ -20,6 +20,15 @@ import {
   type PoseFrame,
   type ShotPhase,
 } from "@/lib/poseToKlay";
+import {
+  appendHistory,
+  clearHistory,
+  formatHistoryTime,
+  loadHistory,
+  summarizeHistory,
+  type HistoryEntry,
+} from "@/lib/sessionHistory";
+
 type Cue = FormCue & { id: number };
 type SourceMode = "live" | "video";
 
@@ -34,6 +43,7 @@ export default function TrainPage() {
   const [recording, setRecording] = useState(true);
   const [phase, setPhase] = useState<ShotPhase>("idle");
   const [metrics, setMetrics] = useState<LiveMetrics | null>(null);
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [pillars, setPillars] = useState<PillarScore[]>(() =>
     model.pillars.map((p) => ({
       pillar: p.id,
@@ -77,7 +87,11 @@ export default function TrainPage() {
     () => [...pillars].sort((a, b) => a.score - b.score)[0],
     [pillars],
   );
+  const historySummary = useMemo(() => summarizeHistory(history), [history]);
 
+  useEffect(() => {
+    setHistory(loadHistory());
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -200,6 +214,7 @@ export default function TrainPage() {
     }
 
     const result = scorePoseShot(frames, made, formScore, model);
+    const weakestPillar = [...result.pillars].sort((a, b) => a.score - b.score)[0];
 
     lastLogAtRef.current = performance.now();
     lastLogWallRef.current = wallNow;
@@ -213,6 +228,24 @@ export default function TrainPage() {
     setCues((prev) => [{ ...result.cue, id: Date.now() }, ...prev].slice(0, 5));
     setDrill(pickModelDrill(model, result.cue.pillar));
     setLogHint(`Scored against ${model.shortName}. Take another shot, then log.`);
+
+    const entry: HistoryEntry = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      at: new Date().toISOString(),
+      shooterId: model.id,
+      shooterName: model.shortName,
+      made,
+      formScore: result.formScore,
+      weakestPillar: weakestPillar?.pillar ?? result.cue.pillar,
+      cueTitle: result.cue.title,
+      source: sourceMode,
+    };
+    setHistory(appendHistory(entry));
+  }
+
+  function resetHistory() {
+    clearHistory();
+    setHistory([]);
   }
 
   return (
@@ -445,6 +478,72 @@ export default function TrainPage() {
                 ))}
               </AnimatePresence>
             </div>
+          </div>
+
+          <div className="sketch-card p-5">
+            <div className="mb-3 flex items-start justify-between gap-3">
+              <div>
+                <p className="hand-note text-sm">Session history</p>
+                <p className="serif mt-1 text-xl">Saved on this device</p>
+              </div>
+              {history.length > 0 && (
+                <button
+                  type="button"
+                  onClick={resetHistory}
+                  className="text-[11px] font-semibold text-ink-faint hover:text-ink"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+
+            {history.length === 0 ? (
+              <p className="text-sm leading-relaxed text-ink-muted">
+                Log makes and misses to build a local history — form scores stay in your browser.
+              </p>
+            ) : (
+              <>
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  <div className="rounded-2xl bg-paper-soft px-2 py-3">
+                    <p className="text-[10px] font-medium text-ink-faint">Shots</p>
+                    <p className="serif text-xl">{historySummary.total}</p>
+                  </div>
+                  <div className="rounded-2xl bg-paper-soft px-2 py-3">
+                    <p className="text-[10px] font-medium text-ink-faint">Make %</p>
+                    <p className="serif text-xl">{historySummary.makePct}%</p>
+                  </div>
+                  <div className="rounded-2xl bg-paper-soft px-2 py-3">
+                    <p className="text-[10px] font-medium text-ink-faint">Avg fit</p>
+                    <p className="serif text-xl">{historySummary.avgForm}</p>
+                  </div>
+                </div>
+
+                <div className="mt-4 space-y-2">
+                  {history.slice(0, 8).map((entry) => (
+                    <div
+                      key={entry.id}
+                      className="flex items-start justify-between gap-3 rounded-2xl border border-ink/10 bg-paper-soft px-3 py-2.5"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-ink">
+                          {entry.made ? "Make" : "Miss"} · {entry.shooterName} · {entry.formScore}
+                        </p>
+                        <p className="truncate text-xs text-ink-muted">{entry.cueTitle}</p>
+                        <p className="mt-0.5 text-[11px] text-ink-faint">
+                          {formatHistoryTime(entry.at)} · {entry.source === "live" ? "camera" : "video"} ·{" "}
+                          {entry.weakestPillar}
+                        </p>
+                      </div>
+                      <span
+                        className={`mt-1 h-2 w-2 shrink-0 rounded-full ${
+                          entry.made ? "bg-green" : "bg-coral"
+                        }`}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
 
           <div className="sketch-card p-5">

@@ -14,7 +14,7 @@ The coaching engine in `src/lib/formModels.ts` scores each rep on eight pillars 
 - **Steph** — one-motion fluidity
 - **Dame** — logo power / step-back rise
 
-Pick a model on `/train`. Sinker returns cues + a matching drill.
+Pick a model on `/train`. Sinker returns cues + a matching drill. Logged reps are saved in **session history** on-device (`localStorage`).
 
 ## Live pose + video upload
 
