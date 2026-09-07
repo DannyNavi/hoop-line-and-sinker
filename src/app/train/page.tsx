@@ -25,6 +25,9 @@ import { getApiBase, listVideos, uploadVideo, type UploadedVideo } from "@/lib/v
 type Cue = FormCue & { id: number };
 type SourceMode = "live" | "upload";
 
+/** Flip to true when re-enabling Spring-backed / local clip upload. */
+const UPLOAD_CLIP_ENABLED = false;
+
 export default function TrainPage() {
   const [shooterId, setShooterId] = useState<ShooterId>("klay");
   const model = useMemo(() => getShooterModel(shooterId), [shooterId]);
@@ -95,6 +98,7 @@ export default function TrainPage() {
   }, []);
 
   useEffect(() => {
+    if (!UPLOAD_CLIP_ENABLED) return;
     void refreshSaved();
   }, [refreshSaved]);
 
@@ -281,42 +285,46 @@ export default function TrainPage() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2 border-b border-ink/10 px-5 py-3">
-            <button
-              type="button"
-              onClick={() => switchMode("live")}
-              className={`rounded-full border px-3.5 py-1.5 text-xs font-semibold transition ${
-                sourceMode === "live"
-                  ? "border-ink bg-ink text-paper"
-                  : "border-ink/15 bg-paper text-ink-muted hover:border-ink/40 hover:text-ink"
-              }`}
-            >
-              Live camera
-            </button>
-            <button
-              type="button"
-              onClick={() => switchMode("upload")}
-              className={`rounded-full border px-3.5 py-1.5 text-xs font-semibold transition ${
-                sourceMode === "upload"
-                  ? "border-ink bg-ink text-paper"
-                  : "border-ink/15 bg-paper text-ink-muted hover:border-ink/40 hover:text-ink"
-              }`}
-            >
-              Upload clip
-            </button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="video/mp4,video/webm,video/quicktime,video/*"
-              className="hidden"
-              onChange={(e) => void handleFilePicked(e.target.files?.[0] ?? null)}
-            />
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="rounded-full border border-ink/15 px-3.5 py-1.5 text-xs font-semibold text-ink-muted hover:border-ink/40 hover:text-ink"
-            >
-              {uploading ? "Saving…" : "Choose video"}
-            </button>
+            {UPLOAD_CLIP_ENABLED && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => switchMode("live")}
+                  className={`rounded-full border px-3.5 py-1.5 text-xs font-semibold transition ${
+                    sourceMode === "live"
+                      ? "border-ink bg-ink text-paper"
+                      : "border-ink/15 bg-paper text-ink-muted hover:border-ink/40 hover:text-ink"
+                  }`}
+                >
+                  Live camera
+                </button>
+                <button
+                  type="button"
+                  onClick={() => switchMode("upload")}
+                  className={`rounded-full border px-3.5 py-1.5 text-xs font-semibold transition ${
+                    sourceMode === "upload"
+                      ? "border-ink bg-ink text-paper"
+                      : "border-ink/15 bg-paper text-ink-muted hover:border-ink/40 hover:text-ink"
+                  }`}
+                >
+                  Upload clip
+                </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="video/mp4,video/webm,video/quicktime,video/*"
+                  className="hidden"
+                  onChange={(e) => void handleFilePicked(e.target.files?.[0] ?? null)}
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="rounded-full border border-ink/15 px-3.5 py-1.5 text-xs font-semibold text-ink-muted hover:border-ink/40 hover:text-ink"
+                >
+                  {uploading ? "Saving…" : "Choose video"}
+                </button>
+              </>
+            )}
             {FORM_MODELS.map((m) => {
               const selected = m.id === shooterId;
               return (
@@ -340,7 +348,7 @@ export default function TrainPage() {
             })}
           </div>
 
-          {(uploadError || localFileName || apiOnline === false) && (
+          {UPLOAD_CLIP_ENABLED && (uploadError || localFileName || apiOnline === false) && (
             <div className="border-b border-ink/10 px-5 py-2 text-xs text-ink-faint">
               {localFileName ? `Loaded · ${localFileName}` : null}
               {localFileName && (uploadError || apiOnline === false) ? " · " : null}
@@ -356,7 +364,7 @@ export default function TrainPage() {
 
           <div className="relative min-h-[400px] p-5 sm:min-h-[520px]">
             <div className="absolute inset-5">
-              {sourceMode === "live" ? (
+              {!UPLOAD_CLIP_ENABLED || sourceMode === "live" ? (
                 <PoseCamera
                   active={recording}
                   model={model}
@@ -384,7 +392,7 @@ export default function TrainPage() {
             </div>
           </div>
 
-          {sourceMode === "upload" && savedVideos.length > 0 && (
+          {UPLOAD_CLIP_ENABLED && sourceMode === "upload" && savedVideos.length > 0 && (
             <div className="flex flex-wrap gap-2 border-t border-ink/10 px-5 py-3">
               {savedVideos.slice(0, 6).map((v) => (
                 <button
