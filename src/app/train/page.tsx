@@ -20,13 +20,8 @@ import {
   type PoseFrame,
   type ShotPhase,
 } from "@/lib/poseToKlay";
-import { getApiBase, listVideos, uploadVideo, type UploadedVideo } from "@/lib/videoApi";
-
 type Cue = FormCue & { id: number };
-type SourceMode = "live" | "upload";
-
-/** Flip to false to hide clip upload / choose-video controls. */
-const UPLOAD_CLIP_ENABLED = true;
+type SourceMode = "live" | "video";
 
 export default function TrainPage() {
   const [shooterId, setShooterId] = useState<ShooterId>("klay");
@@ -63,10 +58,7 @@ export default function TrainPage() {
 
   const [localVideoUrl, setLocalVideoUrl] = useState<string | null>(null);
   const [localFileName, setLocalFileName] = useState<string | null>(null);
-  const [uploading, setUploading] = useState(false);
-  const [uploadError, setUploadError] = useState<string | null>(null);
-  const [savedVideos, setSavedVideos] = useState<UploadedVideo[]>([]);
-  const [apiOnline, setApiOnline] = useState<boolean | null>(null);
+  const [fileError, setFileError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const bufferRef = useRef<PoseFrame[]>([]);
@@ -86,21 +78,6 @@ export default function TrainPage() {
     [pillars],
   );
 
-  const refreshSaved = useCallback(async () => {
-    try {
-      const videos = await listVideos();
-      setSavedVideos(videos);
-      setApiOnline(true);
-      setUploadError(null);
-    } catch {
-      setApiOnline(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!UPLOAD_CLIP_ENABLED) return;
-    void refreshSaved();
-  }, [refreshSaved]);
 
   useEffect(() => {
     return () => {
@@ -160,10 +137,19 @@ export default function TrainPage() {
     );
   }
 
-  async function handleFilePicked(file: File | null) {
+  function clearChosenVideo() {
+    if (localVideoUrl?.startsWith("blob:")) URL.revokeObjectURL(localVideoUrl);
+    setLocalVideoUrl(null);
+    setLocalFileName(null);
+    setFileError(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    switchMode("live");
+  }
+
+  function handleFilePicked(file: File | null) {
     if (!file) return;
     if (!file.type.startsWith("video/")) {
-      setUploadError("Please choose a video file (mp4, webm, mov).");
+      setFileError("Please choose a video file (mp4, webm, mov).");
       return;
     }
 
@@ -171,35 +157,22 @@ export default function TrainPage() {
     const blobUrl = URL.createObjectURL(file);
     setLocalVideoUrl(blobUrl);
     setLocalFileName(file.name);
-    setUploadError(null);
-    switchMode("upload");
+    setFileError(null);
+    switchMode("video");
     bufferRef.current = [];
     lastLogAtRef.current = 0;
-
-    setUploading(true);
-    try {
-      const saved = await uploadVideo(file);
-      setSavedVideos((prev) => [saved, ...prev.filter((v) => v.id !== saved.id)]);
-      setApiOnline(true);
-      const savedCue: Cue = {
+    setCues((prev) => [
+      {
         id: Date.now(),
         pillar: "base",
-        title: "Clip saved",
-        detail: `Stored “${saved.originalName}” on the Spring API. Analyzing locally with MediaPipe.`,
+        title: "Clip loaded",
+        detail: `Analyzing “${file.name}” locally with MediaPipe — nothing is uploaded.`,
         severity: "good",
-        ideal: "Uploaded clip ready",
-        klayTarget: "Uploaded clip ready",
-      };
-      setCues((prev) => [savedCue, ...prev].slice(0, 5));
-    } catch (err) {
-      setApiOnline(false);
-      const msg = err instanceof Error ? err.message : "Upload failed";
-      setUploadError(
-        `Analyzing locally. Spring save skipped — start the API on :8080 to persist. (${msg})`,
-      );
-    } finally {
-      setUploading(false);
-    }
+        ideal: "Local clip ready",
+        klayTarget: "Local clip ready",
+      } satisfies Cue,
+      ...prev,
+    ].slice(0, 5));
   }
 
   function takeShot(made: boolean) {
@@ -251,7 +224,7 @@ export default function TrainPage() {
           </Link>
           <div className="flex items-center gap-3 text-sm">
             <span className="hidden rounded-full border border-ink/15 px-3 py-1.5 text-xs font-medium text-ink-muted sm:inline">
-              {sourceMode === "live" ? "Live pose" : "Uploaded clip"} · {model.athlete}
+              {sourceMode === "live" ? "Live pose" : "Chosen clip"} · {model.athlete}
             </span>
             {sourceMode === "live" && (
               <button
@@ -273,7 +246,7 @@ export default function TrainPage() {
         <section className="sketch-card overflow-hidden">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-ink/10 px-5 py-4 text-sm text-ink-muted">
             <span>
-              {sourceMode === "live" ? "Court camera" : "Uploaded video"} · MediaPipe →{" "}
+              {sourceMode === "live" ? "Court camera" : "Chosen video"} · MediaPipe →{" "}
               {model.shortName}
             </span>
             <span className="inline-flex items-center gap-2">
@@ -285,45 +258,28 @@ export default function TrainPage() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2 border-b border-ink/10 px-5 py-3">
-            {UPLOAD_CLIP_ENABLED && (
-              <>
-                <button
-                  type="button"
-                  onClick={() => switchMode("live")}
-                  className={`rounded-full border px-3.5 py-1.5 text-xs font-semibold transition ${
-                    sourceMode === "live"
-                      ? "border-ink bg-ink text-paper"
-                      : "border-ink/15 bg-paper text-ink-muted hover:border-ink/40 hover:text-ink"
-                  }`}
-                >
-                  Live camera
-                </button>
-                <button
-                  type="button"
-                  onClick={() => switchMode("upload")}
-                  className={`rounded-full border px-3.5 py-1.5 text-xs font-semibold transition ${
-                    sourceMode === "upload"
-                      ? "border-ink bg-ink text-paper"
-                      : "border-ink/15 bg-paper text-ink-muted hover:border-ink/40 hover:text-ink"
-                  }`}
-                >
-                  Upload clip
-                </button>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="video/mp4,video/webm,video/quicktime,video/*"
-                  className="hidden"
-                  onChange={(e) => void handleFilePicked(e.target.files?.[0] ?? null)}
-                />
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="rounded-full border border-ink/15 px-3.5 py-1.5 text-xs font-semibold text-ink-muted hover:border-ink/40 hover:text-ink"
-                >
-                  {uploading ? "Saving…" : "Choose video"}
-                </button>
-              </>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="video/mp4,video/webm,video/quicktime,video/*"
+              className="hidden"
+              onChange={(e) => handleFilePicked(e.target.files?.[0] ?? null)}
+            />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="rounded-full border border-ink/15 px-3.5 py-1.5 text-xs font-semibold text-ink-muted hover:border-ink/40 hover:text-ink"
+            >
+              Choose video
+            </button>
+            {sourceMode === "video" && (
+              <button
+                type="button"
+                onClick={clearChosenVideo}
+                className="rounded-full border border-ink/15 px-3.5 py-1.5 text-xs font-semibold text-ink-muted hover:border-ink/40 hover:text-ink"
+              >
+                Back to camera
+              </button>
             )}
             {FORM_MODELS.map((m) => {
               const selected = m.id === shooterId;
@@ -348,23 +304,19 @@ export default function TrainPage() {
             })}
           </div>
 
-          {UPLOAD_CLIP_ENABLED && (uploadError || localFileName || apiOnline === false) && (
+          {(fileError || localFileName) && (
             <div className="border-b border-ink/10 px-5 py-2 text-xs text-ink-faint">
-              {localFileName ? `Loaded · ${localFileName}` : null}
-              {localFileName && (uploadError || apiOnline === false) ? " · " : null}
-              {uploadError
-                ? uploadError
-                : apiOnline === false
-                  ? `Spring API offline (${getApiBase()}). Local analysis still works.`
-                  : apiOnline
-                    ? "Spring API connected — clips can persist."
-                    : null}
+              {fileError
+                ? fileError
+                : localFileName
+                  ? `Loaded locally · ${localFileName} (not uploaded)`
+                  : null}
             </div>
           )}
 
           <div className="relative min-h-[400px] p-5 sm:min-h-[520px]">
             <div className="absolute inset-5">
-              {!UPLOAD_CLIP_ENABLED || sourceMode === "live" ? (
+              {sourceMode === "live" ? (
                 <PoseCamera
                   active={recording}
                   model={model}
@@ -392,26 +344,6 @@ export default function TrainPage() {
             </div>
           </div>
 
-          {UPLOAD_CLIP_ENABLED && sourceMode === "upload" && savedVideos.length > 0 && (
-            <div className="flex flex-wrap gap-2 border-t border-ink/10 px-5 py-3">
-              {savedVideos.slice(0, 6).map((v) => (
-                <button
-                  key={v.id}
-                  type="button"
-                  onClick={() => {
-                    if (localVideoUrl?.startsWith("blob:")) URL.revokeObjectURL(localVideoUrl);
-                    setLocalVideoUrl(v.url);
-                    setLocalFileName(v.originalName);
-                    bufferRef.current = [];
-                    lastLogAtRef.current = 0;
-                  }}
-                  className="rounded-full border border-ink/10 px-3 py-1 text-[11px] text-ink-muted hover:border-ink/30 hover:text-ink"
-                >
-                  {v.originalName}
-                </button>
-              ))}
-            </div>
-          )}
 
           <div className="relative z-10 flex flex-wrap gap-3 border-t border-ink/10 px-5 py-4">
             <button
@@ -479,7 +411,7 @@ export default function TrainPage() {
               <div>
                 <p className="font-semibold">Sinker</p>
                 <p className="text-sm text-ink-faint">
-                  {sourceMode === "live" ? "Live pose" : "Uploaded clip"} → {model.shortName} cues
+                  {sourceMode === "live" ? "Live pose" : "Chosen clip"} → {model.shortName} cues
                 </p>
               </div>
             </div>
