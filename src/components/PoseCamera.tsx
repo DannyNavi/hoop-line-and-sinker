@@ -12,6 +12,13 @@ import type { Landmark } from "@/lib/poseGeometry";
 import { inferShootingSide, sideJoints } from "@/lib/poseGeometry";
 import { POSE_MODEL_URL, POSE_WASM_URL } from "@/lib/mediapipeConfig";
 import {
+  cameraConstraints,
+  canvasDrawSize,
+  detectIntervalMs,
+  poseDelegate,
+  uiUpdateIntervalMs,
+} from "@/lib/posePerf";
+import {
   inferPhaseFromHeights,
   previewPillarsFromPose,
   type LiveMetrics,
@@ -41,11 +48,17 @@ export function PoseCamera({
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const landmarkerRef = useRef<PoseLandmarker | null>(null);
+  const drawingRef = useRef<DrawingUtils | null>(null);
   const modelRef = useRef(model);
   const rafRef = useRef(0);
   const lastVideoTimeRef = useRef(-1);
+  const lastDetectAtRef = useRef(0);
+  const lastUiAtRef = useRef(0);
   const bufferRef = useRef<PoseFrame[]>([]);
   const heightsRef = useRef<number[]>([]);
+  const onLiveUpdateRef = useRef(onLiveUpdate);
+  const onBufferRef = useRef(onBuffer);
+
   const [status, setStatus] = useState<"loading" | "ready" | "error" | "denied">("loading");
   const [errorMsg, setErrorMsg] = useState("");
   const [facing, setFacing] = useState<Facing>("user");
@@ -67,6 +80,14 @@ export function PoseCamera({
   useEffect(() => {
     activeRef.current = active;
   }, [active]);
+
+  useEffect(() => {
+    onLiveUpdateRef.current = onLiveUpdate;
+  }, [onLiveUpdate]);
+
+  useEffect(() => {
+    onBufferRef.current = onBuffer;
+  }, [onBuffer]);
 
   const stopStream = useCallback(() => {
     streamRef.current?.getTracks().forEach((t) => t.stop());
@@ -92,22 +113,18 @@ export function PoseCamera({
       bufferRef.current = [];
       heightsRef.current = [];
       lastVideoTimeRef.current = -1;
-      onBuffer([]);
+      onBufferRef.current([]);
 
       let stream: MediaStream;
       try {
         stream = await navigator.mediaDevices.getUserMedia({
           audio: false,
-          video: {
-            facingMode: { ideal: nextFacing },
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
-          },
+          video: cameraConstraints(nextFacing),
         });
       } catch {
         stream = await navigator.mediaDevices.getUserMedia({
           audio: false,
-          video: true,
+          video: { facingMode: nextFacing },
         });
       }
 
@@ -118,10 +135,12 @@ export function PoseCamera({
         throw new Error("Video element missing");
       }
       video.srcObject = stream;
+      video.setAttribute("playsinline", "true");
+      video.setAttribute("webkit-playsinline", "true");
       await video.play();
       await refreshFlipAvailability();
     },
-    [onBuffer, refreshFlipAvailability, stopStream],
+    [refreshFlipAvailability, stopStream],
   );
 
   const flipCamera = useCallback(async () => {
@@ -142,22 +161,33 @@ export function PoseCamera({
 
   useEffect(() => {
     let cancelled = false;
+    const detectEvery = detectIntervalMs();
+    const uiEvery = uiUpdateIntervalMs();
+
+    async function createLandmarker(delegate: "GPU" | "CPU") {
+      const vision = await FilesetResolver.forVisionTasks(POSE_WASM_URL);
+      return PoseLandmarker.createFromOptions(vision, {
+        baseOptions: {
+          modelAssetPath: POSE_MODEL_URL,
+          delegate,
+        },
+        runningMode: "VIDEO",
+        numPoses: 1,
+        minPoseDetectionConfidence: 0.4,
+        minPosePresenceConfidence: 0.4,
+        minTrackingConfidence: 0.4,
+      });
+    }
 
     async function setup() {
       try {
         setStatus("loading");
-        const vision = await FilesetResolver.forVisionTasks(POSE_WASM_URL);
-        const landmarker = await PoseLandmarker.createFromOptions(vision, {
-          baseOptions: {
-            modelAssetPath: POSE_MODEL_URL,
-            delegate: "GPU",
-          },
-          runningMode: "VIDEO",
-          numPoses: 1,
-          minPoseDetectionConfidence: 0.4,
-          minPosePresenceConfidence: 0.4,
-          minTrackingConfidence: 0.4,
-        });
+        let landmarker: PoseLandmarker;
+        try {
+          landmarker = await createLandmarker(poseDelegate());
+        } catch {
+          landmarker = await createLandmarker("CPU");
+        }
         if (cancelled) {
           landmarker.close();
           return;
@@ -186,26 +216,38 @@ export function PoseCamera({
         rafRef.current = requestAnimationFrame(tick);
         if (!activeRef.current || video.readyState < 2) return;
         if (video.currentTime === lastVideoTimeRef.current) return;
-        lastVideoTimeRef.current = video.currentTime;
 
         const now = performance.now();
+        if (now - lastDetectAtRef.current < detectEvery) return;
+        lastDetectAtRef.current = now;
+        lastVideoTimeRef.current = video.currentTime;
+
         const result = landmarker.detectForVideo(video, now);
-        const ctx = canvas.getContext("2d");
+        const ctx = canvas.getContext("2d", { alpha: false });
         if (!ctx) return;
 
-        canvas.width = video.videoWidth || 640;
-        canvas.height = video.videoHeight || 480;
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        const { width: dw, height: dh } = canvasDrawSize(
+          video.videoWidth || 640,
+          video.videoHeight || 480,
+        );
+        if (canvas.width !== dw || canvas.height !== dh) {
+          canvas.width = dw;
+          canvas.height = dh;
+          drawingRef.current = new DrawingUtils(ctx);
+        }
+        if (!drawingRef.current) drawingRef.current = new DrawingUtils(ctx);
+
+        ctx.clearRect(0, 0, dw, dh);
 
         const mirror = facingRef.current === "user";
         if (mirror) {
           ctx.save();
-          ctx.translate(canvas.width, 0);
+          ctx.translate(dw, 0);
           ctx.scale(-1, 1);
-          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          ctx.drawImage(video, 0, 0, dw, dh);
           ctx.restore();
         } else {
-          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          ctx.drawImage(video, 0, 0, dw, dh);
         }
 
         const pose = result.landmarks?.[0];
@@ -218,20 +260,18 @@ export function PoseCamera({
           visibility: p.visibility,
         }));
 
-        const draw = new DrawingUtils(ctx);
         const drawable = landmarks.map((p) => ({
           x: p.x,
           y: p.y,
           z: p.z ?? 0,
           visibility: p.visibility ?? 1,
         }));
-        draw.drawLandmarks(drawable, { radius: 3, color: "#56C87C" });
-        draw.drawConnectors(drawable, PoseLandmarker.POSE_CONNECTIONS, {
+        drawingRef.current.drawLandmarks(drawable, { radius: 2, color: "#56C87C" });
+        drawingRef.current.drawConnectors(drawable, PoseLandmarker.POSE_CONNECTIONS, {
           color: "#FBFBF9",
-          lineWidth: 2,
+          lineWidth: 1.5,
         });
 
-        const preview = previewPillarsFromPose(landmarks, modelRef.current);
         const side = inferShootingSide(landmarks);
         const wristIdx = sideJoints(side).wrist;
         const wrist = landmarks[wristIdx];
@@ -248,13 +288,22 @@ export function PoseCamera({
         const phase = inferPhaseFromHeights(heightsRef.current);
 
         const frame: PoseFrame = { t: now, landmarks };
-        bufferRef.current = [...bufferRef.current.slice(-90), frame];
-        onBuffer(bufferRef.current);
-        onLiveUpdate({
-          pillars: preview.pillars,
-          metrics: { ...preview.metrics, phase },
-          phase,
-        });
+        const nextBuffer = bufferRef.current.length >= 90
+          ? [...bufferRef.current.slice(-89), frame]
+          : [...bufferRef.current, frame];
+        bufferRef.current = nextBuffer;
+        onBufferRef.current(nextBuffer);
+
+        // Throttle React updates — these were the main mobile stutter source.
+        if (now - lastUiAtRef.current >= uiEvery) {
+          lastUiAtRef.current = now;
+          const preview = previewPillarsFromPose(landmarks, modelRef.current);
+          onLiveUpdateRef.current({
+            pillars: preview.pillars,
+            metrics: { ...preview.metrics, phase },
+            phase,
+          });
+        }
       };
 
       rafRef.current = requestAnimationFrame(tick);
@@ -267,6 +316,7 @@ export function PoseCamera({
       cancelAnimationFrame(rafRef.current);
       landmarkerRef.current?.close();
       landmarkerRef.current = null;
+      drawingRef.current = null;
       stopStream();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -279,6 +329,7 @@ export function PoseCamera({
         className="absolute inset-0 h-full w-full object-cover opacity-0"
         playsInline
         muted
+        autoPlay
       />
       <canvas ref={canvasRef} className="absolute inset-0 h-full w-full object-cover" />
 
