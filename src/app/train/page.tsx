@@ -25,8 +25,8 @@ import { getApiBase, listVideos, uploadVideo, type UploadedVideo } from "@/lib/v
 type Cue = FormCue & { id: number };
 type SourceMode = "live" | "upload";
 
-/** Flip to true when re-enabling Spring-backed / local clip upload. */
-const UPLOAD_CLIP_ENABLED = false;
+/** Flip to false to hide clip upload / choose-video controls. */
+const UPLOAD_CLIP_ENABLED = true;
 
 export default function TrainPage() {
   const [shooterId, setShooterId] = useState<ShooterId>("klay");
